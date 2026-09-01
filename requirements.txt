@@ -1,0 +1,19 @@
+# Core Deep Learning & Computer Vision
+ultralytics>=8.2.0
+opencv-python>=4.8.0.76
+numpy>=1.24.0,<2.0.0
+Pillow>=10.0.0
+
+# Plate-specific OCR (primary engine in ocr.py)
+# Use "fast-plate-ocr[onnx-gpu]" instead if onnxruntime-gpu is wanted.
+fast-plate-ocr[onnx]>=1.1.0
+
+# OCR Engine (PaddleOCR & Dependencies)
+paddleocr>=2.7.3
+paddlepaddle>=2.6.0  # Or paddlepaddle-gpu if using CUDA-enabled PaddlePaddle
+pyclipper>=1.3.0
+shapely>=2.0.0
+
+# Data Analysis & CLI
+pandas>=2.0.0
+tqdm>=4.66.0
