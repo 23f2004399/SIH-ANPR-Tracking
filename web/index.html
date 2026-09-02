@@ -137,7 +137,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex:none;opacity:.55">
             <path d="M4 6h16M4 12h10M4 18h6" stroke="#667085" stroke-width="2" stroke-linecap="round"></path>
           </svg>
-          <input id="plateInput" placeholder="Plate number (try TN07CL2138)" autocomplete="off">
+          <input id="plateInput" placeholder="Plate number" autocomplete="off">
           <button id="searchBtn" class="btn">Search</button>
         </div>
         <button id="resetBtn" class="btn-ghost hidden">Reset</button>
@@ -635,7 +635,10 @@ const statTile = (k, v, color) =>
 
 function renderIdleSide() {
   const total = state.detections.length;
-  const named = state.detections.filter(d => d.plate_number !== 'UNKNOWN').length;
+  // Count only well-formed registrations, matching the live panel — a raw
+  // "500 plates read" would be counting fragments like 'TZZT' as vehicles.
+  const named = state.detections.filter(
+    d => d.plate_number !== 'UNKNOWN' && isValidPlate(normPlate(d.plate_number))).length;
   document.getElementById('sidePanel').innerHTML = `
     <div class="card" style="padding:24px;display:flex;flex-direction:column;
          align-items:center;text-align:center;gap:12px">
@@ -652,7 +655,7 @@ function renderIdleSide() {
     <div class="grid2">
       ${statTile('ACTIVE CAMERAS', state.cameras.length)}
       ${statTile('TOTAL TRACKS', total.toLocaleString())}
-      ${statTile('PLATES READ', named.toLocaleString(), 'var(--blue)')}
+      ${statTile('VALID PLATES', named.toLocaleString(), 'var(--blue)')}
       ${statTile('CITIES', new Set(state.cameras.map(c => c.city)).size)}
     </div>`;
 }
