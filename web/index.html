@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZYRODEV · ANPR Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  :root{
+    --bg:#f3f4f6; --panel:#fff; --line:#e4e7eb; --line2:#d0d5dd;
+    --ink:#101828; --mut:#475467; --mut2:#667085; --mut3:#98a2b3;
+    --blue:#2563eb; --green:#16a34a; --amber:#d97706; --red:#dc2626;
+    --video:#12161c;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--blue);color:#fff}
+  input,select,button{font-family:inherit}
+  input::placeholder{color:var(--mut3)}
+  @keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes tileScan{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}50%{box-shadow:0 0 0 3px rgba(37,99,235,.5)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes dash{to{stroke-dashoffset:-1000}}
+
+  .shell{width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .topbar{height:60px;flex:none;display:flex;align-items:center;justify-content:space-between;
+          padding:0 28px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand{font-weight:800;font-size:15px;letter-spacing:.2px}
+  .brand-sub{font-size:11.5px;letter-spacing:2px;color:var(--mut2);font-weight:700}
+  .body{flex:1;display:flex;gap:16px;padding:16px;min-height:0}
+  .col-main{flex:1.9;min-width:0;display:flex;flex-direction:column;gap:12px}
+  .col-side{flex:1;min-width:290px;max-width:400px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:5px}
+  .toolbar{flex:none;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sel{background:#f9fafb;border:1px solid var(--line2);color:#344054;font-size:12.5px;
+       font-weight:600;border-radius:3px;padding:9px 12px;outline:none;min-width:160px}
+  .searchwrap{position:relative;flex:2;min-width:280px;display:flex;align-items:center;
+              background:#f9fafb;border:1px solid var(--line2);border-radius:3px;padding:0 6px 0 12px}
+  .searchwrap input{flex:1;min-width:0;background:transparent;border:none;outline:none;
+       color:var(--ink);font:600 13px var(--mono);letter-spacing:.5px;padding:9px 8px}
+  .btn{background:var(--blue);border:none;color:#fff;font-weight:700;font-size:12px;
+       border-radius:5px;padding:7px 14px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:#fff;border:1px solid var(--line2);color:var(--mut);
+             font-size:11.5px;font-weight:600;border-radius:3px;padding:9px 12px;cursor:pointer}
+  .panel-head{flex:none;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .panel-title{font-size:11px;font-weight:800;letter-spacing:1.6px;color:#344054}
+  .tick{width:3px;height:13px;background:var(--blue);display:inline-block}
+  .panel-sub{font-size:10.5px;color:var(--mut3);font-family:var(--mono)}
+  .stage{flex:1;min-height:0;padding:14px;display:flex;flex-direction:column}
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+         gap:18px;text-align:center}
+  .empty-ic{width:76px;height:76px;border-radius:18px;background:#eff6ff;display:flex;
+            align-items:center;justify-content:center;
+            clip-path:polygon(18% 0,100% 0,100% 82%,82% 100%,0 100%,0 18%)}
+  .empty h3{font-size:17px;font-weight:800;margin:0}
+  .empty p{font-size:12.5px;color:var(--mut2);margin:6px 0 0;max-width:320px;line-height:1.5}
+  .vwrap{position:relative;flex:1;min-height:0;border-radius:3px;overflow:hidden;background:var(--video)}
+  .vwrap video{width:100%;height:100%;object-fit:contain;display:block;background:var(--video)}
+  .vtag{position:absolute;top:10px;left:10px;font:600 10.5px var(--mono);color:#e4e7eb;
+        background:rgba(0,0,0,.55);padding:3px 8px;border-radius:4px;z-index:2}
+  .vstate{position:absolute;bottom:10px;left:10px;font:600 10.5px var(--mono);
+          padding:3px 8px;border-radius:4px;z-index:2;background:rgba(0,0,0,.55);color:#e4e7eb}
+  .dual{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dual.single{grid-template-columns:1fr}
+  .stat{padding:12px}
+  .stat-k{font-size:10px;color:var(--mut2);font-weight:600;letter-spacing:.5px}
+  .stat-v{font:800 24px var(--mono);margin-top:6px;letter-spacing:-.02em}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px}
+  .row span:first-child{color:var(--mut)}
+  .row span:last-child{font:700 13px var(--mono)}
+  #map{flex:none;height:240px;border-radius:3px;margin-top:10px;border:1px solid var(--line);
+       animation:fadeUp .4s ease-out}
+  /* After both feeds have played the map takes over the whole stage. */
+  #map.map-full{flex:1;height:auto;min-height:0;margin-top:0}
+  .route-badge{background:#2563eb;border:none;color:#fff;font:600 11px var(--mono);
+               box-shadow:none;padding:3px 8px}
+  .route-badge::before{display:none}
+  .hidden{display:none!important}
+  .tiles{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;min-height:0}
+  .tile{position:relative;border-radius:3px;overflow:hidden;border:1px solid var(--line);
+        background:var(--video);display:flex;align-items:center;justify-content:center}
+  .tile.scanning{border-color:var(--blue);animation:tileScan 1s ease-in-out infinite}
+  .tile-id{position:absolute;top:8px;left:8px;font:600 10px var(--mono);color:#e4e7eb;
+           background:rgba(0,0,0,.45);padding:2px 6px;border-radius:3px}
+  .tile-msg{font:700 11px var(--mono);letter-spacing:1px}
+  .banner{padding:14px;display:flex;gap:10px;align-items:flex-start;border-radius:5px}
+  .banner-warn{background:#fef2f2;border:1px solid #fca5a5}
+  .log-row{display:flex;justify-content:space-between;font-size:11.5px;font-family:var(--mono)}
+  .err{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:10px 14px;
+       font-size:11.5px;border-radius:5px;margin:0 16px}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <svg width="26" height="26" viewBox="0 0 26 26" style="flex:none">
+        <rect x="1" y="1" width="24" height="24" rx="3" fill="#101828"></rect>
+        <path d="M7 17 L13 7 L19 17" stroke="#fff" stroke-width="1.6" fill="none" stroke-linejoin="round"></path>
+        <circle cx="13" cy="14.5" r="1.6" fill="#2563eb"></circle>
+      </svg>
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span class="brand">ZYRODEV</span>
+        <span style="width:1px;height:14px;background:var(--line)"></span>
+        <span class="brand-sub">ANPR DASHBOARD</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--mut);font-weight:600">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);
+                   display:inline-block;animation:pulseDot 2s ease-in-out infinite"></span>
+      <span id="nodeStatus">SYSTEM ONLINE · — NODES</span>
+    </div>
+  </div>
+
+  <div id="errBar" class="err hidden"></div>
+
+  <div class="body">
+
+    <div class="col-main">
+      <div class="card toolbar">
+        <select id="citySel" class="sel">
+          <option value="">Select city feed…</option>
+        </select>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <div class="searchwrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex:none;opacity:.55">
+            <path d="M4 6h16M4 12h10M4 18h6" stroke="#667085" stroke-width="2" stroke-linecap="round"></path>
+          </svg>
+          <input id="plateInput" placeholder="Plate number (try TN07CL2138)" autocomplete="off">
+          <button id="searchBtn" class="btn">Search</button>
+        </div>
+        <button id="resetBtn" class="btn-ghost hidden">Reset</button>
+      </div>
+
+      <div class="card stage">
+        <div class="panel-head">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="tick"></span>
+            <div class="panel-title">MULTI-CAMERA TRACKING</div>
+          </div>
+          <div class="panel-sub" id="stageSub">— / — NODES</div>
+        </div>
+
+        <!-- idle -->
+        <div id="viewIdle" class="empty">
+          <div class="empty-ic">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="7" width="13" height="10" rx="1.5" stroke="#2563eb" stroke-width="1.8"></rect>
+              <path d="M16 10.5l5-2.5v8l-5-2.5" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"></path>
+              <circle cx="7.5" cy="12" r="1.6" fill="#2563eb"></circle>
+            </svg>
+          </div>
+          <div><h3>No feed selected</h3>
+            <p>Select a city above to start ANPR monitoring across its camera network.</p></div>
+        </div>
+
+        <!-- live -->
+        <div id="viewLive" class="vwrap hidden">
+          <div class="vtag" id="liveTag">CAM-01 — LIVE</div>
+          <video id="liveVideo" muted playsinline></video>
+        </div>
+
+        <!-- searching -->
+        <div id="viewSearch" class="tiles hidden"></div>
+
+        <!-- not found -->
+        <div id="viewNotFound" class="empty hidden">
+          <div class="empty-ic" style="background:#fef2f2">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="#dc2626" stroke-width="1.8"></circle>
+              <path d="M8 8l8 8M16 8l-8 8" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"></path>
+            </svg>
+          </div>
+          <div><h3>Number Plate Not Found</h3>
+            <p id="notFoundMsg">No camera in this network recorded a plate matching that number.</p></div>
+        </div>
+
+        <!-- trajectory -->
+        <div id="viewTraj" class="hidden" style="flex:1;min-height:0;display:flex;flex-direction:column">
+          <div id="dualWrap" class="dual">
+            <div class="vwrap">
+              <div class="vtag" id="tagA">—</div>
+              <div class="vstate" id="stateA">QUEUED</div>
+              <video id="videoA" muted playsinline></video>
+            </div>
+            <div class="vwrap" id="slotB">
+              <div class="vtag" id="tagB">—</div>
+              <div class="vstate" id="stateB">QUEUED</div>
+              <video id="videoB" muted playsinline></video>
+            </div>
+          </div>
+          <div id="map" class="hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-side">
+      <div class="card" style="flex:none;padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="tick"></span>
+          <div class="panel-title">URBAN TRAFFIC ANALYTICS</div>
+        </div>
+        <div class="panel-sub" style="margin-top:3px;margin-left:11px" id="sideSub">City-wide overview</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px"
+           id="sidePanel"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ===========================================================================
+// CONFIG
+// ===========================================================================
+const CONFIG = {
+  // The publishable key is safe in frontend code — RLS restricts it to SELECT.
+  // NEVER put the sb_secret_... key here; that one bypasses RLS entirely.
+  SUPABASE_URL: 'https://trqqgynpchwdhawdetnb.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_N8ju_7268xczvHaHQCtVog_3U1z7TkE',
+
+  // 0.80, not 0.75. 'TN07CL2138' vs 'TN07OL2568' scores exactly 0.77 and they
+  // are different vehicles; the weakest genuine pair in this dataset is 0.80.
+  // That gap is where the line belongs.
+  MATCH_THRESHOLD: 0.80,
+  MIN_PLATE_LEN: 8,        // shorter reads are partial and match by accident
+  LIVE_CAMERA: 'Camera_1', // which feed plays when a city is picked
+
+  // Pre-cut per-vehicle clips (clip_vehicles.py). Playing a 4s clip from 0 is
+  // instant and always shows the vehicle; seeking inside an 87MB file is slow
+  // and lands imprecisely, which is why the car sometimes never appeared.
+  CLIPS_MANIFEST: './manifest.json',         // ships beside index.html
+  CLIPS_DIR: 'https://trqqgynpchwdhawdetnb.supabase.co/storage/v1/object/public/videos/clips',
+
+  // Cameras 1/2/3 sit around one junction: a vehicle physically cannot be
+  // caught by all three on one pass. Any third hit is a plate collision, so
+  // trajectories are capped at the two best-supported cameras.
+  MAX_CAMERAS: 2,
+};
+
+// Cities in the dropdown. Only those with rows in `cameras` have live feeds;
+// the rest render an honest "no nodes deployed" state instead of being hidden.
+const CITY_LIST = ['Chennai', 'Mumbai', 'Delhi NCR', 'Bengaluru', 'Hyderabad', 'Kolkata'];
+
+// ===========================================================================
+// FUZZY PLATE MATCHING  (ported from trajectory.py — keep the two in sync)
+// ===========================================================================
+const TO_DIGIT = {O:'0',Q:'0',D:'0',I:'1',L:'1',Z:'2',A:'4',S:'5',G:'6',T:'7',B:'8'};
+const LETTER_SIM = {
+  A:'RH4N',B:'REP8',C:'GOE',D:'OQPB',E:'FBC',F:'EPT',G:'COQ6',H:'NMKB',I:'TLJ1',
+  J:'ILT',K:'XRNH',L:'ICET',M:'NHW',N:'MHWKRA',O:'QDCG0',P:'RFB',Q:'OGD',R:'PBKN',
+  S:'5BG',T:'IY7L',U:'VWJ',V:'UWY',W:'VUM',X:'KY',Y:'VTX',Z:'2S'
+};
+const CONFUSION_COST = 0.3, SUBSTITUTE_COST = 1.0;
+
+const CONFUSABLE = (() => {
+  const s = new Set();
+  const add = (a, b) => s.add(a < b ? a + b : b + a);
+  for (const [l, d] of Object.entries(TO_DIGIT)) add(l, d);
+  for (const [a, sim] of Object.entries(LETTER_SIM)) for (const b of sim) if (a !== b) add(a, b);
+  return s;
+})();
+
+const normPlate = p => (p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+function subCost(a, b) {
+  if (a === b) return 0;
+  return CONFUSABLE.has(a < b ? a + b : b + a) ? CONFUSION_COST : SUBSTITUTE_COST;
+}
+
+/** Confusion-weighted edit distance, normalised to 0..1.
+ *  A D->T slip (routine OCR error) costs 0.3; D->9 costs a full 1.0. */
+function similarity(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  let prev = Array.from({length: b.length + 1}, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1,
+                        prev[j - 1] + subCost(a[i - 1], b[j - 1]));
+    }
+    prev = cur;
+  }
+  return Math.max(0, 1 - prev[b.length] / Math.max(a.length, b.length));
+}
+
+// ===========================================================================
+// DATA
+// ===========================================================================
+const state = { cameras: [], detections: [], clipIndex: {},
+                mode: 'idle', playToken: 0, map: null, mapLayer: null };
+
+/** Index clips by camera + the exact text that camera read, which is what a
+ *  sighting carries — so lookup is exact rather than fuzzy-matching twice. */
+async function loadClips() {
+  try {
+    const m = await fetch(CONFIG.CLIPS_MANIFEST).then(r => r.ok ? r.json() : null);
+    if (!m) return {};
+    const idx = {};
+    for (const entry of Object.values(m)) {
+      for (const c of entry.clips) idx[`${c.camera_id}|${c.read_as}`] = c;
+    }
+    return idx;
+  } catch { return {}; }
+}
+
+const sbHeaders = () => ({
+  apikey: CONFIG.SUPABASE_KEY,
+  Authorization: `Bearer ${CONFIG.SUPABASE_KEY}`,
+});
+
+async function sb(path, extraHeaders = {}) {
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/${path}`,
+                        { headers: { ...sbHeaders(), ...extraHeaders } });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+/** PostgREST caps every response at 1000 rows (Supabase's db-max-rows), and
+ *  `limit=20000` does not override it — you silently get 1000 back. With 3240
+ *  detections that would drop two thirds of the data and break most searches,
+ *  so page through with Range until a short page comes back. */
+async function sbAll(path, pageSize = 1000) {
+  const rows = [];
+  for (let from = 0; ; from += pageSize) {
+    const page = await sb(path, { Range: `${from}-${from + pageSize - 1}` });
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+    if (from > 200000) return rows;          // guard against a runaway loop
+  }
+}
+
+/** A real Indian registration: 10 chars, <2 letters><1-2 digits><1-3 letters><4 digits>.
+ *  OCR fragments like 'TZZT' or 'BTTRE' fail this and are noise, not vehicles. */
+const PLATE_RE = /^[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}$/;
+const isValidPlate = p => p.length === 10 && PLATE_RE.test(p);
+
+/** Supabase is the only source. There is deliberately no local fallback: once
+ *  deployed there is no ./outputs or ./web_videos to fall back to, and a silent
+ *  downgrade to stale data would hide an outage instead of surfacing it. */
+async function loadData() {
+  const [cams, dets] = await Promise.all([
+    sb('cameras?select=*&order=id'),
+    sbAll('detections?select=*&order=id'),     // paged: 3240 rows, 1000 at a time
+  ]);
+  if (!cams.length) {
+    throw new Error('cameras table is empty — run upload_to_supabase.py');
+  }
+  return { cameras: cams, detections: dets };
+}
+
+function showError(msg) {
+  const el = document.getElementById('errBar');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// ===========================================================================
+// SEARCH  — mirrors trajectory.py: merge per camera, then match across cameras
+// ===========================================================================
+function searchPlate(query) {
+  const q = normPlate(query);
+  if (q.length < 3) return [];
+
+  // Merge repeated tracks of one plate at one camera into a single sighting.
+  const merged = new Map();
+  for (const d of state.detections) {
+    const plate = normPlate(d.plate_number);
+    if (!plate || plate === 'UNKNOWN' || plate.length < CONFIG.MIN_PLATE_LEN) continue;
+    const key = d.camera_id + '|' + plate;
+    const entry = new Date(d.entry_timestamp), exit = new Date(d.exit_timestamp);
+    const cur = merged.get(key);
+    if (cur) {
+      cur.entry = new Date(Math.min(cur.entry, entry));
+      cur.exit  = new Date(Math.max(cur.exit, exit));
+      cur.startSec = Math.min(cur.startSec, d.entry_offset_sec);
+      cur.endSec   = Math.max(cur.endSec, d.exit_offset_sec);
+      cur.conf     = Math.max(cur.conf, d.confidence);
+    } else {
+      merged.set(key, { camera_id: d.camera_id, plate, entry, exit,
+                        startSec: d.entry_offset_sec, endSec: d.exit_offset_sec,
+                        conf: d.confidence });
+    }
+  }
+
+  const hits = [...merged.values()]
+    .map(s => ({ ...s, score: similarity(q, s.plate) }))
+    .filter(s => s.score >= CONFIG.MATCH_THRESHOLD);
+
+  // Best-scoring sighting per camera.
+  const perCam = new Map();
+  for (const h of hits) {
+    const cur = perCam.get(h.camera_id);
+    if (!cur || h.score > cur.score) perCam.set(h.camera_id, h);
+  }
+
+  // The three cameras cover one junction, so a single pass can only be caught
+  // by two of them. A third hit means a different vehicle whose plate reads
+  // close enough to collide — keep the two best-supported and drop the rest.
+  let picked = [...perCam.values()];
+  if (picked.length > CONFIG.MAX_CAMERAS) {
+    picked.sort((a, b) => (b.score - a.score) || (b.conf - a.conf));
+    picked = picked.slice(0, CONFIG.MAX_CAMERAS);
+  }
+  return picked.sort((a, b) => a.entry - b.entry);
+}
+
+// ===========================================================================
+// VIDEO PLAYBACK
+// ===========================================================================
+const camById = id => state.cameras.find(c => c.id === id);
+const fmtTime = d => d.toLocaleTimeString('en-GB', { hour12: false });
+
+/** Play exactly [startSec, endSec] of a clip, then resolve.
+ *  currentTime cannot be set before metadata loads, hence the wait. */
+function playSegment(video, url, startSec, endSec, token, onTick) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      video.removeEventListener('timeupdate', tick);
+      video.pause();
+      resolve();
+    };
+    const tick = () => {
+      if (token !== state.playToken) return finish();   // a new search superseded us
+      if (onTick) onTick(video.currentTime);
+      if (video.currentTime >= endSec) finish();
+    };
+    const start = () => {
+      if (token !== state.playToken) return finish();
+      // Pad by 0.4s so the vehicle is already in frame when playback starts.
+      video.currentTime = Math.max(0, startSec - 0.4);
+      video.addEventListener('timeupdate', tick);
+      video.play().catch(() => finish());               // autoplay blocked
+    };
+    video.addEventListener('error', finish, { once: true });
+    video.addEventListener('ended', finish, { once: true });
+    if (video.src !== url) {
+      video.src = url;
+      video.addEventListener('loadedmetadata', start, { once: true });
+      video.load();
+    } else if (video.readyState >= 1) { start(); }
+    else video.addEventListener('loadedmetadata', start, { once: true });
+  });
+}
+
+async function runTrajectory(sightings, query) {
+  const token = ++state.playToken;
+  setMode('trajectory');
+
+  const dual = document.getElementById('dualWrap');
+  dual.classList.remove('hidden');                       // a previous search may
+  document.getElementById('map').classList.remove('map-full');  // have swapped these
+  document.getElementById('map').classList.add('hidden');
+  dual.classList.toggle('single', sightings.length < 2);
+  document.getElementById('slotB').classList.toggle('hidden', sightings.length < 2);
+
+  const slots = [
+    { v: document.getElementById('videoA'), tag: document.getElementById('tagA'), st: document.getElementById('stateA') },
+    { v: document.getElementById('videoB'), tag: document.getElementById('tagB'), st: document.getElementById('stateB') },
+  ];
+
+  sightings.slice(0, 2).forEach((s, i) => {
+    const cam = camById(s.camera_id) || {};
+    slots[i].tag.textContent = `${s.camera_id.replace('Camera_', 'CAM-0')} · ${cam.name || ''} — read '${s.plate}'`;
+    slots[i].st.textContent = `QUEUED · ${fmtTime(s.entry)} → ${fmtTime(s.exit)}`;
+  });
+
+  renderTrajectorySide(sightings, query);
+
+  // Play each camera in the order the vehicle passed through them.
+  for (let i = 0; i < Math.min(2, sightings.length); i++) {
+    const s = sightings[i], slot = slots[i], cam = camById(s.camera_id) || {};
+    if (token !== state.playToken) return;
+    slot.st.textContent = `PLAYING · ${fmtTime(s.entry)} → ${fmtTime(s.exit)}`;
+    slot.st.style.background = 'rgba(37,99,235,.85)';
+
+    // Prefer the pre-cut clip: it starts at 0, always contains the vehicle,
+    // and needs no range-seek into a 87MB file.
+    const clip = state.clipIndex[`${s.camera_id}|${s.plate}`];
+    if (clip) {
+      await playSegment(slot.v, `${CONFIG.CLIPS_DIR}/${clip.clip}`,
+                        0, clip.clip_duration_sec, token,
+        t => { slot.st.textContent = `PLAYING · ${t.toFixed(1)}s / ${clip.clip_duration_sec.toFixed(1)}s`; });
+    } else {
+      await playSegment(slot.v, cam.video_url, s.startSec, s.endSec, token,
+        t => { slot.st.textContent = `PLAYING · t=${t.toFixed(1)}s / ${s.endSec.toFixed(1)}s`; });
+    }
+
+    if (token !== state.playToken) return;
+    slot.st.textContent = `CLEARED FRAME · ${fmtTime(s.exit)}`;
+    slot.st.style.background = 'rgba(22,163,74,.85)';
+  }
+
+  if (token !== state.playToken) return;
+  // Both passes are done — the feeds have served their purpose, so hand the
+  // whole panel over to the route map rather than squeezing it underneath.
+  await new Promise(r => setTimeout(r, 700));
+  if (token !== state.playToken) return;
+  document.getElementById('dualWrap').classList.add('hidden');
+  document.getElementById('map').classList.add('map-full');
+  drawMap(sightings);
+}
+
+// ===========================================================================
+// MAP
+// ===========================================================================
+/** Ask OSRM for the driving route between the camera positions so the line
+ *  follows the road instead of cutting across buildings. Public demo server,
+ *  no key — if it is slow or down we fall back to a straight line rather than
+ *  leaving the map empty. */
+async function roadRoute(points) {
+  const coords = points.map(([la, lo]) => `${lo},${la}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}`
+            + `?overview=full&geometries=geojson`;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 4000);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    const j = await r.json();
+    if (j.code !== 'Ok' || !j.routes?.length) return null;
+    return {
+      // GeoJSON is [lon,lat]; Leaflet wants [lat,lon].
+      line: j.routes[0].geometry.coordinates.map(([lo, la]) => [la, lo]),
+      distance: j.routes[0].distance,
+      duration: j.routes[0].duration,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function drawMap(sightings) {
+  const el = document.getElementById('map');
+  el.classList.remove('hidden');
+
+  if (!state.map) {
+    state.map = L.map(el, { zoomControl: true, attributionControl: false });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                { maxZoom: 19, maxNativeZoom: 19 }).addTo(state.map);
+  }
+  if (state.mapLayer) state.mapLayer.remove();
+  state.mapLayer = L.layerGroup().addTo(state.map);
+
+  const pts = [];
+  sightings.forEach((s, i) => {
+    const cam = camById(s.camera_id);
+    if (!cam) return;
+    const ll = [cam.latitude, cam.longitude];
+    pts.push(ll);
+    L.circleMarker(ll, { radius: 8, color: '#2563eb', weight: 3,
+                         fillColor: '#fff', fillOpacity: 1 })
+      .bindTooltip(`<b>${s.camera_id.replace('Camera_', 'CAM-0')}</b><br>${fmtTime(s.entry)}`,
+                   { permanent: true, direction: i ? 'right' : 'left' })
+      .addTo(state.mapLayer);
+  });
+
+  // Fit to the markers first so the map is never blank while OSRM answers.
+  if (pts.length) {
+    state.map.fitBounds(L.latLngBounds(pts).pad(0.45));
+    setTimeout(() => state.map.invalidateSize(), 60);
+  }
+  if (pts.length < 2) return;
+
+  const route = await roadRoute(pts);
+  const line = route ? route.line : pts;
+  L.polyline(line, {
+    color: '#2563eb', weight: 5, opacity: .9,
+    dashArray: route ? null : '10 8',     // dashed = straight-line fallback
+  }).addTo(state.mapLayer);
+
+  if (route) {
+    const mid = route.line[Math.floor(route.line.length / 2)];
+    L.tooltip({ permanent: true, direction: 'top', className: 'route-badge' })
+      .setLatLng(mid)
+      .setContent(`${Math.round(route.distance)} m along road`)
+      .addTo(state.mapLayer);
+  }
+  state.map.fitBounds(L.latLngBounds(line).pad(0.25));
+  setTimeout(() => state.map.invalidateSize(), 60);
+}
+
+// ===========================================================================
+// RENDERING
+// ===========================================================================
+const VIEWS = { idle:'viewIdle', live:'viewLive', searching:'viewSearch',
+                notfound:'viewNotFound', trajectory:'viewTraj' };
+
+function setMode(mode) {
+  state.mode = mode;
+  for (const [m, id] of Object.entries(VIEWS)) {
+    document.getElementById(id).classList.toggle('hidden', m !== mode);
+  }
+  document.getElementById('resetBtn').classList.toggle('hidden', mode === 'idle');
+  document.getElementById('stageSub').textContent = {
+    idle: `— / ${state.cameras.length} NODES`, live: 'LIVE FEED',
+    searching: 'NETWORK SEARCH', notfound: 'NO MATCH',
+    trajectory: 'ROUTE RECONSTRUCTION',
+  }[mode];
+  document.getElementById('sideSub').textContent = {
+    idle: 'City-wide overview', live: 'Live feed analytics',
+    searching: 'Cross-referencing feeds', notfound: 'No route to display',
+    trajectory: 'Vehicle trajectory & stats',
+  }[mode];
+  if (mode !== 'trajectory') document.getElementById('map').classList.add('hidden');
+}
+
+const card = inner => `<div class="card" style="padding:14px">${inner}</div>`;
+const statTile = (k, v, color) =>
+  `<div class="card stat"><div class="stat-k">${k}</div>
+   <div class="stat-v" style="color:${color || 'var(--ink)'}">${v}</div></div>`;
+
+function renderIdleSide() {
+  const total = state.detections.length;
+  const named = state.detections.filter(d => d.plate_number !== 'UNKNOWN').length;
+  document.getElementById('sidePanel').innerHTML = `
+    <div class="card" style="padding:24px;display:flex;flex-direction:column;
+         align-items:center;text-align:center;gap:12px">
+      <div class="empty-ic" style="width:56px;height:56px;border-radius:14px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M3 20V10l6-4 6 4v10" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"></path>
+          <path d="M12 20V13l6-3 3 1.5v8.5" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <div><div style="font-size:13.5px;font-weight:800">City overview</div>
+      <div style="font-size:11.5px;color:var(--mut2);margin-top:4px;line-height:1.5">
+        Network stats update once monitoring begins.</div></div>
+    </div>
+    <div class="grid2">
+      ${statTile('ACTIVE CAMERAS', state.cameras.length)}
+      ${statTile('TOTAL TRACKS', total.toLocaleString())}
+      ${statTile('PLATES READ', named.toLocaleString(), 'var(--blue)')}
+      ${statTile('CITIES', new Set(state.cameras.map(c => c.city)).size)}
+    </div>`;
+}
+
+function renderLiveSide(camId) {
+  const rows = state.detections.filter(d => d.camera_id === camId);
+  const named = rows.filter(d => d.plate_number !== 'UNKNOWN');
+  // Only well-formed registrations count as a real read; fragments like 'TZZT'
+  // are OCR noise and would inflate every number on this panel.
+  const valid = named.filter(d => isValidPlate(normPlate(d.plate_number)));
+  const uniq = new Set(valid.map(d => normPlate(d.plate_number))).size;
+  const avg = valid.length
+    ? (valid.reduce((a, d) => a + d.confidence, 0) / valid.length).toFixed(1) : '0.0';
+  const dur = rows.length ? Math.max(...rows.map(d => d.exit_offset_sec)) : 0;
+  const perMin = dur ? (rows.length / (dur / 60)).toFixed(0) : '0';
+  const cam = camById(camId) || {};
+
+  document.getElementById('sidePanel').innerHTML = `
+    ${card(`<div class="stat-k" style="margin-bottom:8px">FEED — ${cam.name || camId}</div>
+      <div class="grid2" style="gap:12px">
+        <div><div style="font-size:9.5px;color:var(--mut3)">VEHICLES PASSED</div>
+          <div class="stat-v" style="font-size:22px;color:var(--blue)">${rows.length.toLocaleString()}</div></div>
+        <div><div style="font-size:9.5px;color:var(--mut3)">VALID PLATES</div>
+          <div class="stat-v" style="font-size:22px">${valid.length}</div></div>
+        <div><div style="font-size:9.5px;color:var(--mut3)">UNIQUE PLATES</div>
+          <div class="stat-v" style="font-size:22px">${uniq}</div></div>
+        <div><div style="font-size:9.5px;color:var(--mut3)">AVG OCR CONF</div>
+          <div class="stat-v" style="font-size:22px;color:var(--green)">${avg}%</div></div>
+      </div>`)}
+    ${card(`<div class="stat-k" style="margin-bottom:10px">FEED METRICS</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="row"><span>Footage duration</span><span>${(dur / 60).toFixed(1)} min</span></div>
+        <div class="row"><span>Throughput</span><span>${perMin} veh/min</span></div>
+        <div class="row"><span>Read rate</span><span>${rows.length ? (100 * valid.length / rows.length).toFixed(1) : 0}%</span></div>
+        <div class="row"><span>Congestion</span>
+          <span style="color:${perMin > 250 ? 'var(--red)' : perMin > 120 ? 'var(--amber)' : 'var(--green)'}">
+          ${perMin > 250 ? 'Heavy' : perMin > 120 ? 'Moderate' : 'Light'}</span></div>
+      </div>`)}
+    ${card(`<div class="stat-k" style="margin-bottom:10px">RECENT READS
+        <span style="font-weight:500;color:var(--mut3);letter-spacing:0"> · verified format only</span></div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${valid.slice(-8).reverse().map(d => `<div class="log-row">
+          <span style="color:var(--ink)">${normPlate(d.plate_number)}</span>
+          <span style="color:var(--mut3)">${fmtTime(new Date(d.entry_timestamp))}</span></div>`).join('')
+          || '<div style="font-size:11.5px;color:var(--mut3)">No valid plates read yet.</div>'}
+      </div>`)}`;
+}
+
+function renderTrajectorySide(sightings, query) {
+  const first = sightings[0], last = sightings[sightings.length - 1];
+  const transit = sightings.length > 1
+    ? ((last.entry - first.exit) / 1000).toFixed(1) + 's' : '—';
+  const route = sightings.map(s => s.camera_id.replace('Camera_', 'CAM-0')).join('  →  ');
+
+  document.getElementById('sidePanel').innerHTML = `
+    ${card(`<div class="stat-k" style="margin-bottom:10px">MATCH — ${normPlate(query)}</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="row"><span>Best read</span><span style="color:var(--blue)">${sightings[0].plate}</span></div>
+        <div class="row"><span>Confidence</span><span>${(sightings[0].score * 100).toFixed(0)}% match</span></div>
+        <div class="row"><span>Cameras hit</span><span>${sightings.length}</span></div>
+        <div class="row"><span>Transit time</span><span>${transit}</span></div>
+        <div class="row"><span>Route</span><span style="font-size:11px">${route}</span></div>
+      </div>`)}
+    ${card(`<div class="stat-k" style="margin-bottom:10px">CHECKPOINT LOG</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        ${sightings.map(s => {
+          const cam = camById(s.camera_id) || {};
+          return `<div>
+            <div class="log-row"><span style="color:var(--ink);font-weight:600">
+              ${s.camera_id.replace('Camera_', 'CAM-0')}</span>
+              <span style="color:var(--mut3)">${fmtTime(s.entry)} → ${fmtTime(s.exit)}</span></div>
+            <div style="font-size:10.5px;color:var(--mut3);font-family:var(--mono);margin-top:2px">
+              ${cam.name || ''} · read '${s.plate}' · ${(s.score * 100).toFixed(0)}%</div>
+          </div>`;
+        }).join('')}
+      </div>`)}`;
+}
+
+function renderSearchTiles(step) {
+  document.getElementById('viewSearch').innerHTML = state.cameras.map((c, i) => `
+    <div class="tile ${step === i ? 'scanning' : ''}">
+      <div class="tile-id">${c.id.replace('Camera_', 'CAM-0')} · ${c.name}</div>
+      <div class="tile-msg" style="color:${step === i ? '#60a5fa' : step > i ? '#22c55e' : '#475467'}">
+        ${step === i ? 'SCANNING…' : step > i ? 'CHECKED' : 'QUEUED'}</div>
+    </div>`).join('');
+}
+
+// ===========================================================================
+// EVENTS
+// ===========================================================================
+function stopAllVideos() {
+  state.playToken++;
+  ['liveVideo', 'videoA', 'videoB'].forEach(id => {
+    const v = document.getElementById(id);
+    v.pause(); v.removeAttribute('src'); v.load();
+  });
+}
+
+document.getElementById('citySel').addEventListener('change', e => {
+  stopAllVideos();
+  const city = e.target.value;
+  if (!city) { setMode('idle'); renderIdleSide(); return; }
+
+  const cam = state.cameras.find(c => c.city === city && c.id === CONFIG.LIVE_CAMERA)
+           || state.cameras.find(c => c.city === city);
+  if (!cam) {
+    // City exists in the network list but has no nodes deployed yet — say so
+    // rather than silently doing nothing.
+    setMode('idle');
+    document.querySelector('#viewIdle h3').textContent = `No nodes in ${city}`;
+    document.querySelector('#viewIdle p').textContent =
+      `${city} is not yet part of the ANPR network. Select Chennai to view a live feed.`;
+    document.getElementById('resetBtn').classList.remove('hidden');
+    renderIdleSide();
+    return;
+  }
+  document.querySelector('#viewIdle h3').textContent = 'No feed selected';
+  document.querySelector('#viewIdle p').textContent =
+    'Select a city above to start ANPR monitoring across its camera network.';
+
+  setMode('live');
+  renderLiveSide(cam.id);
+  document.getElementById('liveTag').textContent =
+    `${cam.id.replace('Camera_', 'CAM-0')} · ${cam.name} — ${city.toUpperCase()}`;
+  const v = document.getElementById('liveVideo');
+  v.src = cam.video_url;
+  v.loop = true;
+  v.play().catch(() => {});   // autoplay may need a gesture; the click counts
+});
+
+async function doSearch() {
+  const query = document.getElementById('plateInput').value.trim();
+  if (!query) return;
+  stopAllVideos();
+
+  // Sweep the camera tiles so the search reads as a network query, then resolve.
+  setMode('searching');
+  document.getElementById('sidePanel').innerHTML = card(
+    `<div style="text-align:center">
+       <div style="font:700 13px var(--mono);color:var(--blue);letter-spacing:1px">
+         MATCHING ACROSS NETWORK</div>
+       <div style="font-size:11.5px;color:var(--mut2);margin-top:8px">
+         Querying ${state.cameras.length} camera nodes for
+         <span style="font-family:var(--mono);color:var(--ink)">${normPlate(query)}</span></div>
+     </div>`);
+
+  for (let i = 0; i < state.cameras.length; i++) {
+    renderSearchTiles(i);
+    await new Promise(r => setTimeout(r, 380));
+  }
+  renderSearchTiles(state.cameras.length);
+  await new Promise(r => setTimeout(r, 200));
+
+  const sightings = searchPlate(query);
+  if (!sightings.length) {
+    setMode('notfound');
+    document.getElementById('notFoundMsg').textContent =
+      `No camera recorded a plate matching “${normPlate(query)}” at ${Math.round(CONFIG.MATCH_THRESHOLD * 100)}% similarity or above.`;
+    document.getElementById('sidePanel').innerHTML = card(
+      `<div style="font-size:12px;color:var(--mut)">
+         Searched <b>${state.cameras.length}</b> nodes and
+         <b>${state.detections.filter(d => d.plate_number !== 'UNKNOWN').length}</b> plate reads.
+         Try fewer characters, or lower <code>MATCH_THRESHOLD</code>.</div>`);
+    return;
+  }
+  runTrajectory(sightings, query);
+}
+
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('plateInput').addEventListener('keydown',
+  e => { if (e.key === 'Enter') doSearch(); });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stopAllVideos();
+  document.getElementById('citySel').value = '';
+  document.getElementById('plateInput').value = '';
+  setMode('idle'); renderIdleSide();
+});
+
+// ===========================================================================
+// BOOT
+// ===========================================================================
+(async function init() {
+  try {
+    const { cameras, detections } = await loadData();
+    state.cameras = cameras;
+    state.detections = detections;
+  } catch (e) {
+    // No silent degradation — say plainly that the backend is unreachable and
+    // stop, rather than rendering an empty dashboard that looks functional.
+    showError(`Cannot reach the ANPR database — ${e.message}. `
+            + `Check the Supabase project is running and CONFIG.SUPABASE_URL/KEY are correct.`);
+    document.querySelector('#viewIdle h3').textContent = 'Backend unavailable';
+    document.querySelector('#viewIdle p').textContent =
+      'The dashboard could not load camera or detection data. Nothing to display.';
+    document.getElementById('citySel').disabled = true;
+    document.getElementById('searchBtn').disabled = true;
+    document.getElementById('plateInput').disabled = true;
+    setMode('idle');
+    return;
+  }
+
+  // Every city in the network list, with node counts so it's obvious which
+  // ones actually have a feed behind them.
+  const withCams = new Set(state.cameras.map(c => c.city));
+  const cities = [...new Set([...withCams, ...CITY_LIST])];
+  const sel = document.getElementById('citySel');
+  cities.forEach(c => {
+    const n = state.cameras.filter(x => x.city === c).length;
+    sel.insertAdjacentHTML('beforeend',
+      `<option value="${c}">${c}${n ? ` · ${n} nodes` : ' · no nodes'}</option>`);
+  });
+  document.getElementById('nodeStatus').textContent =
+    `SYSTEM ONLINE · ${state.cameras.length} NODES`;
+
+  setMode('idle');
+  renderIdleSide();
+})();
+</script>
+</body>
+</html>

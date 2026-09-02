@@ -221,3 +221,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Contains Supabase secret key — never commit
+api_call.js
+
+# --- kept locally, not shipped ---------------------------------------------
+# Superseded design mockup (replaced by web/index.html)
+ANPR Dashboard.dc.html
+support.js
+.thumbnail
+# Abandoned OCR experiment — findings written up in README instead
+gemini.py
+# Leaflet spike, absorbed into index.html
+maps.html
+# One-off ffmpeg step, documented in README instead
+transcode_web.sh
+# Regenerable output of trajectory.py
+valid_track.txt
+# Internal working notes
+context.md
+
+# --- generated media: never committed, all regenerable ----------------------
+clips/
+web_videos/
+outputs_test/
+*.mp4
+*.mov

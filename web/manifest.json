@@ -1,0 +1,540 @@
+{
+  "TN69CA5253": {
+    "plate": "TN69CA5253",
+    "cameras": [
+      "Camera_1",
+      "Camera_2"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN69CA5253_Camera_1.mp4",
+        "read_as": "TN69OA5253",
+        "confidence": 28.12,
+        "entry_timestamp": "2026-08-31T15:58:00.240000",
+        "exit_timestamp": "2026-08-31T15:58:06.840000",
+        "source_start_sec": 0.0,
+        "source_end_sec": 8.34,
+        "clip_duration_sec": 8.34,
+        "vehicle_in_at": 0.24,
+        "vehicle_out_at": 6.84,
+        "all_reads": [
+          "TN69OA5253"
+        ]
+      },
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN69CA5253_Camera_2.mp4",
+        "read_as": "TN69CA5253",
+        "confidence": 32.01,
+        "entry_timestamp": "2026-08-31T16:04:33.120000",
+        "exit_timestamp": "2026-08-31T16:04:38.320000",
+        "source_start_sec": 391.62,
+        "source_end_sec": 399.82,
+        "clip_duration_sec": 8.2,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 6.7,
+        "all_reads": [
+          "TN69CA5253",
+          "TN69OA5253"
+        ]
+      }
+    ]
+  },
+  "TN67CY7549": {
+    "plate": "TN67CY7549",
+    "cameras": [
+      "Camera_2",
+      "Camera_1"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN67CY7549_Camera_2.mp4",
+        "read_as": "TN67CY7549",
+        "confidence": 89.48,
+        "entry_timestamp": "2026-08-31T15:58:26.960000",
+        "exit_timestamp": "2026-08-31T15:58:31.360000",
+        "source_start_sec": 25.46,
+        "source_end_sec": 32.86,
+        "clip_duration_sec": 7.4,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 5.9,
+        "all_reads": [
+          "TN67CY7549",
+          "TN67O7549"
+        ]
+      },
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN67CY7549_Camera_1.mp4",
+        "read_as": "TN67CY7549",
+        "confidence": 51.68,
+        "entry_timestamp": "2026-08-31T15:58:42.480000",
+        "exit_timestamp": "2026-08-31T15:58:44.480000",
+        "source_start_sec": 40.98,
+        "source_end_sec": 45.98,
+        "clip_duration_sec": 5.0,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 3.5,
+        "all_reads": [
+          "TN67CY7549"
+        ]
+      }
+    ]
+  },
+  "TN07OL9722": {
+    "plate": "TN07OL9722",
+    "cameras": [
+      "Camera_1",
+      "Camera_3"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN07OL9722_Camera_1.mp4",
+        "read_as": "DN07OL9722",
+        "confidence": 24.94,
+        "entry_timestamp": "2026-08-31T15:58:37.320000",
+        "exit_timestamp": "2026-08-31T15:58:40.800000",
+        "source_start_sec": 35.82,
+        "source_end_sec": 42.3,
+        "clip_duration_sec": 6.48,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 4.98,
+        "all_reads": [
+          "DN07OL9722"
+        ]
+      },
+      {
+        "camera_id": "Camera_3",
+        "clip": "TN07OL9722_Camera_3.mp4",
+        "read_as": "TN07OL9722",
+        "confidence": 38.04,
+        "entry_timestamp": "2026-08-31T15:59:30.440000",
+        "exit_timestamp": "2026-08-31T15:59:39.880000",
+        "source_start_sec": 88.94,
+        "source_end_sec": 101.38,
+        "clip_duration_sec": 12.44,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 10.94,
+        "all_reads": [
+          "TN07OL9722"
+        ]
+      }
+    ]
+  },
+  "TN1LAJ3921": {
+    "plate": "TN1LAJ3921",
+    "cameras": [
+      "Camera_1",
+      "Camera_2"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN1LAJ3921_Camera_1.mp4",
+        "read_as": "TN1LAJ3921",
+        "confidence": 38.89,
+        "entry_timestamp": "2026-08-31T15:58:47.720000",
+        "exit_timestamp": "2026-08-31T15:58:52.280000",
+        "source_start_sec": 46.22,
+        "source_end_sec": 53.78,
+        "clip_duration_sec": 7.56,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 6.06,
+        "all_reads": [
+          "TN1LAJ3921"
+        ]
+      },
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN1LAJ3921_Camera_2.mp4",
+        "read_as": "TN14AJ3931",
+        "confidence": 32.48,
+        "entry_timestamp": "2026-08-31T15:59:30.760000",
+        "exit_timestamp": "2026-08-31T15:59:37.360000",
+        "source_start_sec": 89.26,
+        "source_end_sec": 98.86,
+        "clip_duration_sec": 9.6,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 8.1,
+        "all_reads": [
+          "TN14AJ3931"
+        ]
+      }
+    ]
+  },
+  "TN03PJ5173": {
+    "plate": "TN03PJ5173",
+    "cameras": [
+      "Camera_3",
+      "Camera_1"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_3",
+        "clip": "TN03PJ5173_Camera_3.mp4",
+        "read_as": "TN0JJ5173",
+        "confidence": 36.09,
+        "entry_timestamp": "2026-08-31T15:58:52.720000",
+        "exit_timestamp": "2026-08-31T15:58:54",
+        "source_start_sec": 51.22,
+        "source_end_sec": 55.5,
+        "clip_duration_sec": 4.28,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 2.78,
+        "all_reads": [
+          "TN0JJ5173"
+        ]
+      },
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN03PJ5173_Camera_1.mp4",
+        "read_as": "TN03PJ5173",
+        "confidence": 50.8,
+        "entry_timestamp": "2026-08-31T16:00:29.880000",
+        "exit_timestamp": "2026-08-31T16:00:35.120000",
+        "source_start_sec": 148.38,
+        "source_end_sec": 156.62,
+        "clip_duration_sec": 8.24,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 6.74,
+        "all_reads": [
+          "TN03PJ5173",
+          "TN0JFJ5173"
+        ]
+      }
+    ]
+  },
+  "TN32BH4703": {
+    "plate": "TN32BH4703",
+    "cameras": [
+      "Camera_1",
+      "Camera_2"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN32BH4703_Camera_1.mp4",
+        "read_as": "TN32BH4703",
+        "confidence": 26.35,
+        "entry_timestamp": "2026-08-31T15:59:31.280000",
+        "exit_timestamp": "2026-08-31T15:59:37.160000",
+        "source_start_sec": 89.78,
+        "source_end_sec": 98.66,
+        "clip_duration_sec": 8.88,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 7.38,
+        "all_reads": [
+          "TN32BH4703"
+        ]
+      },
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN32BH4703_Camera_2.mp4",
+        "read_as": "TN32BH4703",
+        "confidence": 39.53,
+        "entry_timestamp": "2026-08-31T16:00:12.920000",
+        "exit_timestamp": "2026-08-31T16:00:18.560000",
+        "source_start_sec": 131.42,
+        "source_end_sec": 140.06,
+        "clip_duration_sec": 8.64,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 7.14,
+        "all_reads": [
+          "TN32BH4703"
+        ]
+      }
+    ]
+  },
+  "TN3ICE7750": {
+    "plate": "TN3ICE7750",
+    "cameras": [
+      "Camera_1",
+      "Camera_2"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN3ICE7750_Camera_1.mp4",
+        "read_as": "TN3ICE7250",
+        "confidence": 20.52,
+        "entry_timestamp": "2026-08-31T16:00:18.080000",
+        "exit_timestamp": "2026-08-31T16:00:20.560000",
+        "source_start_sec": 136.58,
+        "source_end_sec": 142.06,
+        "clip_duration_sec": 5.48,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 3.98,
+        "all_reads": [
+          "TN3ICE7250"
+        ]
+      },
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN3ICE7750_Camera_2.mp4",
+        "read_as": "TN3ICE7750",
+        "confidence": 53.42,
+        "entry_timestamp": "2026-08-31T16:01:00.360000",
+        "exit_timestamp": "2026-08-31T16:01:06.040000",
+        "source_start_sec": 178.86,
+        "source_end_sec": 187.54,
+        "clip_duration_sec": 8.68,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 7.18,
+        "all_reads": [
+          "TN3ICE7750"
+        ]
+      }
+    ]
+  },
+  "TN22EE3488": {
+    "plate": "TN22EE3488",
+    "cameras": [
+      "Camera_1",
+      "Camera_2"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN22EE3488_Camera_1.mp4",
+        "read_as": "TN22EE3488",
+        "confidence": 39.29,
+        "entry_timestamp": "2026-08-31T16:00:32.160000",
+        "exit_timestamp": "2026-08-31T16:00:35.480000",
+        "source_start_sec": 150.66,
+        "source_end_sec": 156.98,
+        "clip_duration_sec": 6.32,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 4.82,
+        "all_reads": [
+          "TN22EE3488"
+        ]
+      },
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN22EE3488_Camera_2.mp4",
+        "read_as": "TS2EE3488",
+        "confidence": 36.44,
+        "entry_timestamp": "2026-08-31T16:01:18",
+        "exit_timestamp": "2026-08-31T16:01:23.480000",
+        "source_start_sec": 196.5,
+        "source_end_sec": 204.98,
+        "clip_duration_sec": 8.48,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 6.98,
+        "all_reads": [
+          "TS2EE3488"
+        ]
+      }
+    ]
+  },
+  "TN02BV2839": {
+    "plate": "TN02BV2839",
+    "cameras": [
+      "Camera_2",
+      "Camera_1"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN02BV2839_Camera_2.mp4",
+        "read_as": "TN02BV2839",
+        "confidence": 50.9,
+        "entry_timestamp": "2026-08-31T16:00:46.240000",
+        "exit_timestamp": "2026-08-31T16:00:53.880000",
+        "source_start_sec": 164.74,
+        "source_end_sec": 175.38,
+        "clip_duration_sec": 10.64,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 9.14,
+        "all_reads": [
+          "TN02BV2839"
+        ]
+      },
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN02BV2839_Camera_1.mp4",
+        "read_as": "TN02BV2839",
+        "confidence": 38.12,
+        "entry_timestamp": "2026-08-31T16:01:39.880000",
+        "exit_timestamp": "2026-08-31T16:01:49.920000",
+        "source_start_sec": 218.38,
+        "source_end_sec": 231.42,
+        "clip_duration_sec": 13.04,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 11.54,
+        "all_reads": [
+          "TN02BV2839"
+        ]
+      }
+    ]
+  },
+  "TN07OL2568": {
+    "plate": "TN07OL2568",
+    "cameras": [
+      "Camera_1",
+      "Camera_3"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN07OL2568_Camera_1.mp4",
+        "read_as": "TN07OL2568",
+        "confidence": 31.61,
+        "entry_timestamp": "2026-08-31T16:00:46.960000",
+        "exit_timestamp": "2026-08-31T16:00:50.800000",
+        "source_start_sec": 165.46,
+        "source_end_sec": 172.3,
+        "clip_duration_sec": 6.84,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 5.34,
+        "all_reads": [
+          "TN07OL2568"
+        ]
+      },
+      {
+        "camera_id": "Camera_3",
+        "clip": "TN07OL2568_Camera_3.mp4",
+        "read_as": "TN07OL2568",
+        "confidence": 27.39,
+        "entry_timestamp": "2026-08-31T16:01:36.160000",
+        "exit_timestamp": "2026-08-31T16:01:46.080000",
+        "source_start_sec": 214.66,
+        "source_end_sec": 227.58,
+        "clip_duration_sec": 12.92,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 11.42,
+        "all_reads": [
+          "TN07OL2568"
+        ]
+      }
+    ]
+  },
+  "TN07DF8520": {
+    "plate": "TN07DF8520",
+    "cameras": [
+      "Camera_3",
+      "Camera_1"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_3",
+        "clip": "TN07DF8520_Camera_3.mp4",
+        "read_as": "TN07OF8520",
+        "confidence": 22.52,
+        "entry_timestamp": "2026-08-31T16:00:52.400000",
+        "exit_timestamp": "2026-08-31T16:00:54.640000",
+        "source_start_sec": 170.9,
+        "source_end_sec": 176.14,
+        "clip_duration_sec": 5.24,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 3.74,
+        "all_reads": [
+          "TN07OF8520"
+        ]
+      },
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN07DF8520_Camera_1.mp4",
+        "read_as": "TN07DF8520",
+        "confidence": 53.26,
+        "entry_timestamp": "2026-08-31T16:01:13.760000",
+        "exit_timestamp": "2026-08-31T16:01:19.480000",
+        "source_start_sec": 192.26,
+        "source_end_sec": 200.98,
+        "clip_duration_sec": 8.72,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 7.22,
+        "all_reads": [
+          "TN07DF8520",
+          "TN07OF9520"
+        ]
+      }
+    ]
+  },
+  "TN05BC0270": {
+    "plate": "TN05BC0270",
+    "cameras": [
+      "Camera_2",
+      "Camera_1"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN05BC0270_Camera_2.mp4",
+        "read_as": "JK05ZC0270",
+        "confidence": 22.63,
+        "entry_timestamp": "2026-08-31T16:03:39.560000",
+        "exit_timestamp": "2026-08-31T16:03:44",
+        "source_start_sec": 338.06,
+        "source_end_sec": 345.5,
+        "clip_duration_sec": 7.44,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 5.94,
+        "all_reads": [
+          "JK05ZC0270"
+        ]
+      },
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN05BC0270_Camera_1.mp4",
+        "read_as": "TN05BC0270",
+        "confidence": 43.59,
+        "entry_timestamp": "2026-08-31T16:03:56.440000",
+        "exit_timestamp": "2026-08-31T16:04:01.160000",
+        "source_start_sec": 354.94,
+        "source_end_sec": 362.66,
+        "clip_duration_sec": 7.72,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 6.22,
+        "all_reads": [
+          "TN05BC0270"
+        ]
+      }
+    ]
+  },
+  "TN22EC0194": {
+    "plate": "TN22EC0194",
+    "cameras": [
+      "Camera_1",
+      "Camera_2"
+    ],
+    "clips": [
+      {
+        "camera_id": "Camera_1",
+        "clip": "TN22EC0194_Camera_1.mp4",
+        "read_as": "TN22EC0194",
+        "confidence": 33.89,
+        "entry_timestamp": "2026-08-31T16:04:15.400000",
+        "exit_timestamp": "2026-08-31T16:04:21.400000",
+        "source_start_sec": 373.9,
+        "source_end_sec": 382.9,
+        "clip_duration_sec": 9.0,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 7.5,
+        "all_reads": [
+          "TN22EC0194"
+        ]
+      },
+      {
+        "camera_id": "Camera_2",
+        "clip": "TN22EC0194_Camera_2.mp4",
+        "read_as": "TN22EC0194",
+        "confidence": 46.31,
+        "entry_timestamp": "2026-08-31T16:04:46.520000",
+        "exit_timestamp": "2026-08-31T16:04:57",
+        "source_start_sec": 405.02,
+        "source_end_sec": 418.5,
+        "clip_duration_sec": 13.48,
+        "vehicle_in_at": 1.5,
+        "vehicle_out_at": 11.98,
+        "all_reads": [
+          "TN22EC0194",
+          "TN2ZEC0194"
+        ]
+      }
+    ]
+  }
+}
