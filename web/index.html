@@ -496,9 +496,16 @@ async function runTrajectory(sightings, query) {
       await playSegment(slot.v, `${CONFIG.CLIPS_DIR}/${clip.clip}`,
                         0, clip.clip_duration_sec, token,
         t => { slot.st.textContent = `PLAYING · ${t.toFixed(1)}s / ${clip.clip_duration_sec.toFixed(1)}s`; });
-    } else {
+    } else if (cam.video_url) {
       await playSegment(slot.v, cam.video_url, s.startSec, s.endSec, token,
         t => { slot.st.textContent = `PLAYING · t=${t.toFixed(1)}s / ${s.endSec.toFixed(1)}s`; });
+    } else {
+      // No clip and no full feed for this camera. Say so instead of leaving a
+      // black rectangle that looks like a broken player.
+      slot.st.textContent = 'NO FOOTAGE STORED FOR THIS SIGHTING';
+      slot.st.style.background = 'rgba(217,119,6,.9)';
+      await new Promise(r => setTimeout(r, 900));
+      continue;
     }
 
     if (token !== state.playToken) return;
@@ -684,8 +691,7 @@ function renderLiveSide(camId) {
           <span style="color:${perMin > 250 ? 'var(--red)' : perMin > 120 ? 'var(--amber)' : 'var(--green)'}">
           ${perMin > 250 ? 'Heavy' : perMin > 120 ? 'Moderate' : 'Light'}</span></div>
       </div>`)}
-    ${card(`<div class="stat-k" style="margin-bottom:10px">RECENT READS
-        <span style="font-weight:500;color:var(--mut3);letter-spacing:0"> · verified format only</span></div>
+    ${card(`<div class="stat-k" style="margin-bottom:10px">RECENT READS</div>
       <div style="display:flex;flex-direction:column;gap:7px">
         ${valid.slice(-8).reverse().map(d => `<div class="log-row">
           <span style="color:var(--ink)">${normPlate(d.plate_number)}</span>
@@ -829,9 +835,17 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 // ===========================================================================
 (async function init() {
   try {
-    const { cameras, detections } = await loadData();
+    const [{ cameras, detections }, clipIndex] = await Promise.all([
+      loadData(),
+      loadClips(),
+    ]);
     state.cameras = cameras;
     state.detections = detections;
+    state.clipIndex = clipIndex;
+    if (!Object.keys(clipIndex).length) {
+      showError(`No clips found at ${CONFIG.CLIPS_MANIFEST} — trajectory playback `
+              + `will fall back to seeking inside the full feeds.`);
+    }
   } catch (e) {
     // No silent degradation — say plainly that the backend is unreachable and
     // stop, rather than rendering an empty dashboard that looks functional.
