@@ -1,0 +1,11 @@
+# The dashboard is plain static HTML — there is nothing to build.
+#
+# `base = "web"` matters more than it looks: Netlify auto-detects a language by
+# scanning the base directory, and with the repo root as base it finds
+# requirements.txt and tries to pip-install the whole CV pipeline (paddlepaddle,
+# ultralytics, torch) on a build image with no GPU and an unsupported Python.
+# Pointing base at web/ means it finds no manifest, installs nothing, and simply
+# publishes the files.
+[build]
+  base = "web"
+  publish = "."
