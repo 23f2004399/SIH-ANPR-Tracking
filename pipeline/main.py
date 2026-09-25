@@ -35,6 +35,13 @@ from ultralytics import YOLO
 # so the pipeline and the diagnostic tool can never drift apart.
 from ocr import correct_indian_plate, STATE_CODES
 
+# Running this file directly (not `python -m pipeline.main`) puts pipeline/ on
+# sys.path, not the repo root, so the sibling backend/ package isn't importable
+# without this.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from backend.app.services.vision.models import select_device, load_vehicle_model, load_plate_model
+from backend.app.services.plates.ocr_engine import load_ocr_engine, run_ocr_inference
+
 # Suppress internal noise while keeping detailed ANPR engine logs
 os.environ["PPOCR_LOG_LEVEL"] = "ERROR"
 os.environ["FLAGS_allocator_strategy"] = "auto_growth"
@@ -47,17 +54,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ANPR_Engine")
 
-# OCR Engine: EasyOCR (primary) with PaddleOCR fallback
-try:
-    import easyocr as _easyocr
-    _OCR_ENGINE = "easyocr"
-except ImportError:
-    try:
-        from paddleocr import PaddleOCR as _PaddleOCR
-        _OCR_ENGINE = "paddle"
-    except ImportError:
-        logger.error("No OCR engine found. Install with: pip install easyocr  OR  pip install paddleocr paddlepaddle")
-        sys.exit(1)
 
 
 # ==============================================================================
@@ -193,118 +189,24 @@ class MultiCameraANPRPipeline:
         self.vehicle_classes = [2, 3, 5, 7]
 
     def _select_device(self) -> str:
-        """Auto-detect CUDA GPU or CPU."""
-        if self.args.device:
-            return self.args.device.lower()
-        if torch.cuda.is_available():
-            gpu_name = torch.cuda.get_device_name(0)
-            logger.info(f"Detected GPU: {gpu_name}")
-            return "cuda"
-        logger.warning("No CUDA GPU detected. Running on CPU.")
-        return "cpu"
+        return select_device(self.args.device)
 
     def _load_vehicle_model(self, model_name_or_path: str) -> YOLO:
-        """
-        Load vehicle detector: Defaults to latest YOLO11 (yolo11n.pt) with fallback to yolov8n.pt.
-        """
-        logger.info(f"Loading Vehicle Detection Model: {model_name_or_path}...")
-        try:
-            model = YOLO(model_name_or_path)
-            model.to(self.device)
-            return model
-        except Exception as e:
-            logger.warning(f"Could not load '{model_name_or_path}' ({e}). Falling back to 'yolov8n.pt'...")
-            model = YOLO("yolov8n.pt")
-            model.to(self.device)
-            return model
+        return load_vehicle_model(model_name_or_path, self.device)
 
     def _load_plate_model(self, model_path: str) -> YOLO:
-        """
-        Load specialized License Plate detector. Auto-downloads and caches weights locally if needed.
-        """
-        if not os.path.exists(model_path):
-            local_weights_name = "yolov8n_plate.pt"
-            if os.path.exists(local_weights_name):
-                model_path = local_weights_name
-            else:
-                logger.info("Plate detector not found locally. Downloading pre-trained weights from Hugging Face...")
-                download_url = "https://huggingface.co/Koushim/yolov8-license-plate-detection/resolve/main/best.pt"
-                try:
-                    import urllib.request
-                    req = urllib.request.Request(download_url, headers={"User-Agent": "Mozilla/5.0"})
-                    with urllib.request.urlopen(req) as resp, open(local_weights_name, "wb") as f_out:
-                        f_out.write(resp.read())
-                    logger.info(f"Saved plate detector weights to: {local_weights_name}")
-                    model_path = local_weights_name
-                except Exception as e:
-                    logger.error(f"Failed to auto-download plate weights: {e}")
-                    logger.warning("Falling back to vehicle detector for plate model.")
-                    model_path = self.args.vehicle_model
-
-        logger.info(f"Loading Plate Detector: {model_path}...")
-        model = YOLO(model_path)
-        model.to(self.device)
-        return model
+        return load_plate_model(model_path, self.device, self.args.vehicle_model)
 
     def _load_ocr_engine(self):
-        """Load EasyOCR (preferred) or PaddleOCR as fallback."""
-        if _OCR_ENGINE == "easyocr":
-            logger.info("Initializing EasyOCR engine...")
-            return _easyocr.Reader(["en"], gpu=(self.device != "cpu"))
-        else:
-            logger.info("Initializing PaddleOCR engine (fallback)...")
-            for kwargs in [{"use_textline_orientation": True, "lang": "en"}, {"lang": "en"}]:
-                try: return _PaddleOCR(**kwargs)
-                except Exception: pass
-            return _PaddleOCR(lang="en")
+        return load_ocr_engine(self.device)
 
     def _run_ocr_inference(self, plate_img: np.ndarray, track_id: int, camera_id: str, frame_idx: int) -> List[Tuple[str, float]]:
         """Run OCR on a license plate crop. Returns list of (text, confidence) tuples."""
-        if plate_img is None or plate_img.size == 0:
-            return []
+        if plate_img is not None and plate_img.size > 0:
+            h, w = plate_img.shape[:2]
+            logger.info(f"[{camera_id} | Frame {frame_idx:04d}] 🔍 Track #{track_id}: Running OCR on {w}x{h} plate crop...")
 
-        h, w = plate_img.shape[:2]
-        logger.info(f"[{camera_id} | Frame {frame_idx:04d}] 🔍 Track #{track_id}: Running OCR on {w}x{h} plate crop...")
-
-        # Preprocessing: pad + upscale to >= 128px height for legibility
-        pad = max(8, int(h * 0.3))
-        img = cv2.copyMakeBorder(plate_img, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
-        scale = max(1.0, 128.0 / img.shape[0])
-        img = cv2.resize(img, (int(img.shape[1]*scale), int(img.shape[0]*scale)), interpolation=cv2.INTER_CUBIC)
-
-        # Build variants: color, CLAHE-sharpened, Otsu binary
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        clahe_gray = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8)).apply(gray)
-        _, otsu = cv2.threshold(cv2.bilateralFilter(gray, 9, 75, 75), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        variants = [img, cv2.cvtColor(clahe_gray, cv2.COLOR_GRAY2BGR),
-                    cv2.cvtColor(otsu, cv2.COLOR_GRAY2BGR),
-                    cv2.cvtColor(cv2.bitwise_not(otsu), cv2.COLOR_GRAY2BGR)]
-
-        results: List[Tuple[str, float]] = []
-        ALLOWLIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-        for v in variants:
-            try:
-                if _OCR_ENGINE == "easyocr":
-                    detections = self.ocr_engine.readtext(v, allowlist=ALLOWLIST, detail=1)
-                    if detections:
-                        # Sort by top-Y of bounding box so rows are read top-to-bottom
-                        detections.sort(key=lambda d: min(pt[1] for pt in d[0]))
-                        combined_text = "".join(text for _, text, _ in detections)
-                        avg_conf = sum(conf for _, _, conf in detections) / len(detections)
-                        results.append((combined_text, float(avg_conf)))
-                else:  # paddle fallback
-                    for det in [False, True]:
-                        out = self.ocr_engine.ocr(v, det=det, rec=True)
-                        items = (out[0] if out and isinstance(out[0], list) else out) or []
-                        for item in items:
-                            try:
-                                raw, conf = (item[1][0], item[1][1]) if det else (item[0], item[1])
-                                results.append((str(raw), float(conf)))
-                            except Exception:
-                                pass
-            except Exception as e:
-                logger.debug(f"OCR variant error track #{track_id}: {e}")
+        results = run_ocr_inference(self.ocr_engine, plate_img)
 
         if results:
             logger.info(f"[{camera_id} | Frame {frame_idx:04d}] 🔤 OCR raw output: {results}")

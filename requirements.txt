@@ -17,3 +17,9 @@ shapely>=2.0.0
 # Data Analysis & CLI
 pandas>=2.0.0
 tqdm>=4.66.0
+
+# Backend (backend/)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+asyncpg>=0.30.0
+python-multipart>=0.0.12
