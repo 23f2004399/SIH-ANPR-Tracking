@@ -184,6 +184,10 @@ class MultiCameraANPRPipeline:
         self.vehicle_model = self._load_vehicle_model(self.args.vehicle_model)
         self.plate_model = self._load_plate_model(self.args.plate_model)
         self.ocr_engine = self._load_ocr_engine()
+        
+        # Load the Re-ID Embedding model (Factory pattern makes it easy to change later)
+        from pipeline.reid import get_reid_model
+        self.reid_model = get_reid_model("resnet18", self.device)
 
         # Filter for vehicle categories (COCO indices: 2: car, 3: motorcycle, 5: bus, 7: truck)
         self.vehicle_classes = [2, 3, 5, 7]
@@ -276,9 +280,22 @@ class MultiCameraANPRPipeline:
 
         if is_confident:
             # Save single best vehicle crop
+            # Save single best vehicle crop
             if track_data.get("best_vehicle_crop") is not None:
+                v_crop = track_data["best_vehicle_crop"]
                 v_crop_path = os.path.join(self.vehicle_crops_dir, f"{camera_id}_track_{track_id}.jpg")
-                cv2.imwrite(v_crop_path, track_data["best_vehicle_crop"])
+                cv2.imwrite(v_crop_path, v_crop)
+                
+                # --- PHASE 4: Re-ID Embedding Generation ---
+                # Generate the 512-d vector for this VEHICLE_BEST crop
+                embedding = self.reid_model.get_embedding(v_crop)
+                
+                # Save the embedding alongside the crop for now. 
+                # Note: We cannot insert directly into pgvector `reid_embeddings` here yet 
+                # because `pipeline/main.py` is currently writing to CSV, so the base `vehicle_tracks`
+                # don't exist in the database (Foreign Key constraint). 
+                emb_path = os.path.join(self.vehicle_crops_dir, f"{camera_id}_track_{track_id}_emb.npy")
+                np.save(emb_path, np.array(embedding))
 
             # Save single best plate crop
             if track_data.get("best_plate_crop") is not None:

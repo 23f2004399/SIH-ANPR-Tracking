@@ -1,0 +1,6 @@
+# Backend (backend/)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+asyncpg>=0.30.0
+python-multipart>=0.0.12
+httpx
