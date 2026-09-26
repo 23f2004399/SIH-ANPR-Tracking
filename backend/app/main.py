@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.app.api.v1 import cameras, health, jobs, traffic
+from backend.app.api.v1 import cameras, health, jobs, traffic, vehicles
 from backend.app.core import db
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -39,3 +39,4 @@ app.include_router(health.router)
 app.include_router(cameras.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(traffic.router, prefix="/api/v1")
+app.include_router(vehicles.router, prefix="/api/v1/vehicles")
