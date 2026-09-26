@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Query
 
 from backend.app.core.db import get_pool
-from backend.app.core.errors import envelope
+from backend.app.core.errors import ApiError,envelope
 from backend.app.repositories import traffic as repo
 from backend.app.services.analytics.aggregation import compute_metrics
 
@@ -71,3 +71,25 @@ async def by_segment(window_minutes: int = Query(60, gt=0, le=1440)):
 # TODO: GET /traffic/history — read stored traffic_aggregates rows over a
 # date range, filtered by camera_id or segment_id, paginated. See the TODO
 # in repositories/traffic.py for the query this needs.
+
+@router.get("/traffic/history")
+async def history(
+    camera_id: str | None=None,
+    segment_id: str | None=None,
+    start_time: datetime | None=None,
+    end_time: datetime | None=None,
+    limit: int = Query(50,le=200),
+    offset: int=0 
+):
+    if start_time is not None and end_time is not None:
+        if start_time>end_time:
+            raise ApiError(
+                400,
+                "INVALID_DATE_RANGE",
+                "start_time must be before or equal to end_time",
+            )
+    async with get_pool().acquire() as conn:
+        rows=await repo.list_history(
+            conn,camera_id,segment_id,start_time,end_time,limit,offset
+        )    
+    return envelope(rows)
