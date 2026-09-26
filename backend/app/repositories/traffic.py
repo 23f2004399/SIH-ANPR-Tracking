@@ -52,3 +52,9 @@ async def insert_aggregate(
 # TODO: GET /traffic/history needs a query here — filter stored
 # traffic_aggregates rows by camera_id, segment_id and a date range, with
 # limit/offset pagination. Same shape as repositories/jobs.py::list_jobs.
+async def list_history(
+        conn: asyncpg.Connection, camera_id: str | None, segment_id : str| None,
+        start_time: datetime | None, end_time: datetime | None, limit: int, offset:int
+) -> list[dict]:
+    rows=await conn.fetch(camera_id,segment_id,start_time,end_time,limit,offset)
+    return [dict(r) for r in rows]
