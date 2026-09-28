@@ -71,6 +71,56 @@ def clean_plate_text(raw_text: str) -> str:
     return cleaned
 
 
+def compute_crop_quality(
+    crop: np.ndarray,
+    bbox: Tuple[int, int, int, int],
+    frame_width: int,
+    frame_height: int,
+    conf: float = 1.0
+) -> Tuple[float, float]:
+    """
+    Score a vehicle crop based on sharpness (Laplacian variance), region of interest
+    (minimum dimensions and area scaling), aspect ratio, boundary distance, and detection confidence.
+
+    Returns:
+        (composite_quality_score, sharpness_score)
+    """
+    if crop is None or crop.size == 0:
+        return 0.0, 0.0
+
+    h, w = crop.shape[:2]
+    # Filter out tiny or extreme slivers
+    if h < 40 or w < 40:
+        return 0.0, 0.0
+
+    area = float(h * w)
+
+    # 1. Sharpness via Laplacian variance on grayscale
+    if len(crop.shape) == 3:
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = crop
+    sharpness = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+    # 2. Boundary truncation check: penalize crops cut off at video edges
+    vx1, vy1, vx2, vy2 = bbox
+    edge_margin = 4
+    is_clipped = (
+        vx1 <= edge_margin or vy1 <= edge_margin or
+        vx2 >= (frame_width - edge_margin) or vy2 >= (frame_height - edge_margin)
+    )
+    edge_factor = 0.35 if is_clipped else 1.0
+
+    # 3. Aspect ratio sanity check: vehicles typically 0.5 <= w/h <= 3.0
+    aspect_ratio = float(w) / max(float(h), 1.0)
+    aspect_factor = 1.0 if (0.5 <= aspect_ratio <= 3.0) else 0.5
+
+    # 4. Composite Quality Score: balances resolution (sqrt of area), sharpness, confidence, and boundaries
+    composite_score = sharpness * np.sqrt(area) * float(conf) * edge_factor * aspect_factor
+
+    return composite_score, sharpness
+
+
 # State codes this deployment actually sees. Breaks ties when repairing a
 # garbled state field (TK is one substitution from both TR and TN).
 STATE_PRIOR: Tuple[str, ...] = ()
@@ -174,8 +224,10 @@ class MultiCameraANPRPipeline:
         os.makedirs(self.args.output_dir, exist_ok=True)
         self.vehicle_crops_dir = os.path.join(self.args.output_dir, "crops", "vehicles")
         self.plate_crops_dir = os.path.join(self.args.output_dir, "crops", "plates")
+        self.sample_crops_dir = os.path.join(self.args.output_dir, "sample_crops")
         os.makedirs(self.vehicle_crops_dir, exist_ok=True)
         os.makedirs(self.plate_crops_dir, exist_ok=True)
+        os.makedirs(self.sample_crops_dir, exist_ok=True)
 
         self.csv_log_path = os.path.join(self.args.output_dir, "vehicle_logs.csv")
         self._init_csv_log()
@@ -242,14 +294,16 @@ class MultiCameraANPRPipeline:
                     "plate_number",
                     "average_ocr_confidence",
                     "entry_offset_sec",         # seconds into the source clip, for debugging
-                    "exit_offset_sec"
+                    "exit_offset_sec",
+                    "embedding_path"
                 ])
             logger.info(f"Initialized vehicle log file: {self.csv_log_path}")
 
     def _log_track_to_csv(self, camera_id: str, track_id: int, track_data: dict, fps: float):
         """
         Finalize and append tracklet record to CSV.
-        Only save image crops if plate was recognized with decent confidence (>= min_save_conf).
+        Saves best vehicle crop and Re-ID embedding based on ROI and quality scoring.
+        Auto-generates 6-7 sample crops for accuracy testing if enabled.
         """
         best_plate, avg_conf = resolve_best_plate(track_data["ocr_reads"])
         
@@ -262,6 +316,50 @@ class MultiCameraANPRPipeline:
         entry_ts = entry_dt.strftime(CSV_TS_FMT)[:-3]
         exit_ts = exit_dt.strftime(CSV_TS_FMT)[:-3]
 
+        is_confident = (best_plate != "UNKNOWN") and (avg_conf >= self.args.min_save_conf)
+        track_duration = track_data["last_seen_frame"] - track_data["entry_frame"] + 1
+
+        # Check whether to save vehicle crop and embedding
+        should_save_vehicle = (
+            track_data.get("best_vehicle_crop") is not None and
+            (is_confident or self.args.save_all_crops) and
+            track_duration >= self.args.min_track_frames
+        )
+
+        emb_path_str = ""
+        if should_save_vehicle:
+            # 1. Save single best vehicle crop (chosen by ROI size, sharpness, and boundaries)
+            v_crop = track_data["best_vehicle_crop"]
+            v_crop_path = os.path.join(self.vehicle_crops_dir, f"{camera_id}_track_{track_id}.jpg")
+            cv2.imwrite(v_crop_path, v_crop)
+
+            # 2. Re-ID Embedding Generation (512-d normalized vector)
+            embedding = self.reid_model.get_embedding(v_crop)
+            emb_path = os.path.join(self.vehicle_crops_dir, f"{camera_id}_track_{track_id}_emb.npy")
+            np.save(emb_path, np.array(embedding))
+            emb_path_str = emb_path
+
+            # 3. Auto-generate 6-7 sample crops for Re-ID accuracy testing
+            if getattr(self.args, "save_samples", True):
+                raw_samples = track_data.get("sample_crops", [])
+                if raw_samples:
+                    if len(raw_samples) > 7:
+                        indices = np.linspace(0, len(raw_samples) - 1, num=7, dtype=int)
+                        chosen_samples = [raw_samples[i] for i in indices]
+                    else:
+                        chosen_samples = raw_samples
+
+                    track_sample_dir = os.path.join(self.sample_crops_dir, f"{camera_id}_track_{track_id}")
+                    os.makedirs(track_sample_dir, exist_ok=True)
+                    for s_idx, s_crop in enumerate(chosen_samples, start=1):
+                        s_path = os.path.join(track_sample_dir, f"sample_{s_idx:02d}.jpg")
+                        cv2.imwrite(s_path, s_crop)
+
+        # Save single best plate crop if confident
+        if is_confident and track_data.get("best_plate_crop") is not None:
+            p_crop_path = os.path.join(self.plate_crops_dir, f"{camera_id}_track_{track_id}.jpg")
+            cv2.imwrite(p_crop_path, track_data["best_plate_crop"])
+
         with open(self.csv_log_path, mode="a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
@@ -272,46 +370,21 @@ class MultiCameraANPRPipeline:
                 best_plate,
                 f"{avg_conf:.2f}",
                 f"{entry_sec:.2f}",
-                f"{exit_sec:.2f}"
+                f"{exit_sec:.2f}",
+                emb_path_str
             ])
 
-        # High-Accuracy Crop Filter: Only save crops if plate is recognized with decent accuracy
-        is_confident = (best_plate != "UNKNOWN") and (avg_conf >= self.args.min_save_conf)
-
-        if is_confident:
-            # Save single best vehicle crop
-            # Save single best vehicle crop
-            if track_data.get("best_vehicle_crop") is not None:
-                v_crop = track_data["best_vehicle_crop"]
-                v_crop_path = os.path.join(self.vehicle_crops_dir, f"{camera_id}_track_{track_id}.jpg")
-                cv2.imwrite(v_crop_path, v_crop)
-                
-                # --- PHASE 4: Re-ID Embedding Generation ---
-                # Generate the 512-d vector for this VEHICLE_BEST crop
-                embedding = self.reid_model.get_embedding(v_crop)
-                
-                # Save the embedding alongside the crop for now. 
-                # Note: We cannot insert directly into pgvector `reid_embeddings` here yet 
-                # because `pipeline/main.py` is currently writing to CSV, so the base `vehicle_tracks`
-                # don't exist in the database (Foreign Key constraint). 
-                emb_path = os.path.join(self.vehicle_crops_dir, f"{camera_id}_track_{track_id}_emb.npy")
-                np.save(emb_path, np.array(embedding))
-
-            # Save single best plate crop
-            if track_data.get("best_plate_crop") is not None:
-                p_crop_path = os.path.join(self.plate_crops_dir, f"{camera_id}_track_{track_id}.jpg")
-                cv2.imwrite(p_crop_path, track_data["best_plate_crop"])
-
+        if emb_path_str:
             logger.info(
                 f"[{camera_id}] 🏁 Track #{track_id} EXITED | "
                 f"Plate: '{best_plate}' (Avg Conf: {avg_conf:.1f}%) | "
-                f"Time: {entry_dt:%H:%M:%S} -> {exit_dt:%H:%M:%S} | 💾 Saved Verified Crops"
+                f"Time: {entry_dt:%H:%M:%S} -> {exit_dt:%H:%M:%S} | 💾 Saved Best Crop + Embedding"
             )
         else:
             logger.info(
                 f"[{camera_id}] 🏁 Track #{track_id} EXITED | "
                 f"Plate: '{best_plate}' (Avg Conf: {avg_conf:.1f}%) | "
-                f"Time: {entry_dt:%H:%M:%S} -> {exit_dt:%H:%M:%S} | ⏭️ Skipped crop saving (< {self.args.min_save_conf}% conf)"
+                f"Time: {entry_dt:%H:%M:%S} -> {exit_dt:%H:%M:%S} | ⏭️ Skipped crop saving"
             )
 
     # --------------------------------------------------------------------------
@@ -393,6 +466,15 @@ class MultiCameraANPRPipeline:
 
                         vehicle_crop = frame[vy1:vy2, vx1:vx2]
 
+                        # Compute ROI quality (sharpness, size, boundary distance)
+                        v_score, v_sharpness = compute_crop_quality(
+                            crop=vehicle_crop,
+                            bbox=(vx1, vy1, vx2, vy2),
+                            frame_width=frame_width,
+                            frame_height=frame_height,
+                            conf=float(v_conf)
+                        )
+
                         # New vehicle entry
                         if track_id not in active_tracks:
                             active_tracks[track_id] = {
@@ -405,7 +487,10 @@ class MultiCameraANPRPipeline:
                                 "best_conf": 0.0,
                                 "bbox": (vx1, vy1, vx2, vy2),
                                 "best_vehicle_crop": vehicle_crop.copy() if vehicle_crop.size > 0 else None,
-                                "best_vehicle_crop_area": vehicle_crop.shape[0] * vehicle_crop.shape[1] if vehicle_crop.size > 0 else 0,
+                                "best_vehicle_score": v_score,
+                                "best_vehicle_sharpness": v_sharpness,
+                                "sample_crops": [vehicle_crop.copy()] if (vehicle_crop.size > 0 and v_score > 0) else [],
+                                "last_sample_frame": frame_idx,
                                 "best_plate_crop": None,
                                 "best_plate_area": 0
                             }
@@ -417,12 +502,19 @@ class MultiCameraANPRPipeline:
                             active_tracks[track_id]["last_seen_frame"] = frame_idx
                             active_tracks[track_id]["bbox"] = (vx1, vy1, vx2, vy2)
                             
-                            # Keep sharpest vehicle crop
-                            if vehicle_crop.size > 0:
-                                cur_area = vehicle_crop.shape[0] * vehicle_crop.shape[1]
-                                if cur_area > active_tracks[track_id]["best_vehicle_crop_area"]:
-                                    active_tracks[track_id]["best_vehicle_crop"] = vehicle_crop.copy()
-                                    active_tracks[track_id]["best_vehicle_crop_area"] = cur_area
+                            # Keep highest quality vehicle crop (sharpness, ROI size, unclipped)
+                            if v_score > active_tracks[track_id]["best_vehicle_score"]:
+                                active_tracks[track_id]["best_vehicle_crop"] = vehicle_crop.copy()
+                                active_tracks[track_id]["best_vehicle_score"] = v_score
+                                active_tracks[track_id]["best_vehicle_sharpness"] = v_sharpness
+
+                            # Collect candidate sample crops across the vehicle's tracklet
+                            if (frame_idx - active_tracks[track_id]["last_sample_frame"] >= 3) and (vehicle_crop.size > 0):
+                                if vehicle_crop.shape[0] >= 40 and vehicle_crop.shape[1] >= 40:
+                                    active_tracks[track_id]["sample_crops"].append(vehicle_crop.copy())
+                                    active_tracks[track_id]["last_sample_frame"] = frame_idx
+                                    if len(active_tracks[track_id]["sample_crops"]) > 28:
+                                        active_tracks[track_id]["sample_crops"] = active_tracks[track_id]["sample_crops"][::2]
 
                         # Step 2: License Plate Detection & OCR Recognition
                         frames_since_ocr = frame_idx - active_tracks[track_id]["last_ocr_frame"]
@@ -775,7 +867,25 @@ def parse_args() -> argparse.Namespace:
         "--min_save_conf",
         type=float,
         default=25.0,
-        help="Minimum OCR confidence percentage required to save vehicle/plate crops to disk (default: 40.0)"
+        help="Minimum OCR confidence percentage required to save plate crops to disk (default: 25.0)"
+    )
+    parser.add_argument(
+        "--save_all_crops",
+        action="store_true",
+        default=True,
+        help="Save vehicle crop and Re-ID embedding for all tracked vehicles meeting quality threshold (default: True)"
+    )
+    parser.add_argument(
+        "--save_samples",
+        action="store_true",
+        default=True,
+        help="Auto-generate and save 6-7 sample crops per vehicle for Re-ID accuracy testing (default: True)"
+    )
+    parser.add_argument(
+        "--min_track_frames",
+        type=int,
+        default=5,
+        help="Minimum frames a vehicle must be tracked before saving crops/embeddings (default: 5)"
     )
     parser.add_argument(
         "--max_lost_frames",

@@ -63,7 +63,7 @@ def probe_duration(path):
 
 def main():
     ap = argparse.ArgumentParser(description="Cut per-vehicle demo clips")
-    ap.add_argument("log", nargs="?", default="./outputs/vehicle_logs.csv")
+    ap.add_argument("log", nargs="?", default="../outputs_test/vehicle_logs.csv")
     ap.add_argument("--src", default="./web_videos",
                     help="Folder holding the annotated videos (default: ./web_videos)")
     ap.add_argument("--pattern", default="cam{n}.mp4",
