@@ -31,14 +31,16 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
+# Ensure both pipeline/ and repo root are on sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
+for p in (REPO_ROOT, SCRIPT_DIR):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 # Indian plate grammar + glyph-confusion repair, shared with the ocr.py evaluator
 # so the pipeline and the diagnostic tool can never drift apart.
-from ocr import correct_indian_plate, STATE_CODES
-
-# Running this file directly (not `python -m pipeline.main`) puts pipeline/ on
-# sys.path, not the repo root, so the sibling backend/ package isn't importable
-# without this.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ocr import correct_indian_plate, STATE_CODES, is_brand_or_noise
 from backend.app.services.vision.models import select_device, load_vehicle_model, load_plate_model
 from backend.app.services.plates.ocr_engine import load_ocr_engine, run_ocr_inference
 
@@ -191,18 +193,15 @@ def resolve_best_plate(ocr_reads: List[Tuple[str, float]]) -> Tuple[str, float]:
         len_scores[len(text)] += conf * len(text)
     ranked = sorted(len_scores, key=lambda k: len_scores[k], reverse=True)
 
-    # Prefer the highest-ranked length that actually yields a well-formed plate.
-    fallback = None
+    # Prefer the highest-ranked length that actually yields a well-formed Indian plate.
     for target_len in ranked:
         voted, agreement, mean_conf = vote_at_length(target_len)
         corrected, is_valid = correct_indian_plate(voted, STATE_PRIOR)
-        result = (corrected, round(agreement * mean_conf * 100.0, 2))
-        if is_valid:
-            return result
-        if fallback is None:
-            fallback = result
+        if is_valid and not is_brand_or_noise(corrected):
+            return corrected, round(agreement * mean_conf * 100.0, 2)
 
-    return fallback if fallback else ("UNKNOWN", 0.0)
+    # Strictly reject arbitrary strings/logos (e.g. ASHOKLGYLAND, KOIM, etc.)
+    return "UNKNOWN", 0.0
 
 
 # ==============================================================================
@@ -319,6 +318,14 @@ class MultiCameraANPRPipeline:
         is_confident = (best_plate != "UNKNOWN") and (avg_conf >= self.args.min_save_conf)
         track_duration = track_data["last_seen_frame"] - track_data["entry_frame"] + 1
 
+        # Multi-frame check:
+        # Ignore 1-frame transient detector flickers with no plate (eliminates 0.00s duration rows)
+        if track_duration <= 1 and best_plate == "UNKNOWN":
+            logger.info(
+                f"[{camera_id}] ⏭️ Track #{track_id} skipped from CSV: present for only 1 frame (0.00s flicker)"
+            )
+            return False
+
         # Check whether to save vehicle crop and embedding
         should_save_vehicle = (
             track_data.get("best_vehicle_crop") is not None and
@@ -386,6 +393,8 @@ class MultiCameraANPRPipeline:
                 f"Plate: '{best_plate}' (Avg Conf: {avg_conf:.1f}%) | "
                 f"Time: {entry_dt:%H:%M:%S} -> {exit_dt:%H:%M:%S} | ⏭️ Skipped crop saving"
             )
+
+        return True
 
     # --------------------------------------------------------------------------
     # Video Stream Processing Routine
@@ -552,10 +561,6 @@ class MultiCameraANPRPipeline:
                                         active_tracks[track_id]["best_plate"] = "RECOGNIZING..."
 
                                     # Pad in FRAME coordinates, not vehicle-crop coordinates.
-                                    # Clamping the padding to the vehicle box silently ate it
-                                    # whenever the plate sat at the edge of that box, which is
-                                    # exactly where plates usually are — that was truncating
-                                    # characters off the end of the crop.
                                     pad_x = max(6, int((px2 - px1) * self.args.plate_pad))
                                     pad_y = max(4, int((py2 - py1) * self.args.plate_pad))
                                     c_px1 = max(0, global_px1 - pad_x)
@@ -573,6 +578,13 @@ class MultiCameraANPRPipeline:
                                         if ocr_lines:
                                             for raw_text, ocr_score in ocr_lines:
                                                 cleaned = clean_plate_text(raw_text)
+                                                # Discard vehicle manufacturer logos / commercial text
+                                                if is_brand_or_noise(cleaned):
+                                                    logger.info(
+                                                        f"[{camera_id} | Frame {frame_idx:04d}] ⚠️ Track #{track_id}: "
+                                                        f"Discarded manufacturer brand/logo OCR '{raw_text}'"
+                                                    )
+                                                    continue
                                                 # Near-zero-confidence variants are noise; they
                                                 # would still get a say in the length vote.
                                                 if cleaned and len(cleaned) >= 4 and ocr_score >= 0.20:
@@ -614,8 +626,8 @@ class MultiCameraANPRPipeline:
                     if frame_idx - t_data["last_seen_frame"] > self.args.max_lost_frames
                 ]
                 for t_id in dead_ids:
-                    self._log_track_to_csv(camera_id, t_id, active_tracks[t_id], fps)
-                    logged_count += 1
+                    if self._log_track_to_csv(camera_id, t_id, active_tracks[t_id], fps):
+                        logged_count += 1
                     del active_tracks[t_id]
 
                 # Step 4: Video Annotation
@@ -647,8 +659,8 @@ class MultiCameraANPRPipeline:
         finally:
             # Flush any remaining active tracks
             for t_id, t_data in list(active_tracks.items()):
-                self._log_track_to_csv(camera_id, t_id, t_data, fps)
-                logged_count += 1
+                if self._log_track_to_csv(camera_id, t_id, t_data, fps):
+                    logged_count += 1
                 del active_tracks[t_id]
 
             cap.release()

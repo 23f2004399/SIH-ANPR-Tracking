@@ -60,9 +60,29 @@ LETTER_SIM = {
 BH_RE = re.compile(r"^\d{2}BH\d{4}[A-Z]{1,2}$")
 STD_RE = re.compile(r"^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{4}$")
 
+# Manufacturer brand logos, grille emblems, and commercial slogans commonly
+# misdetected as license plates
+BRAND_KEYWORDS = {
+    "ASHOK", "LEYLAND", "TATA", "MARUTI", "SUZUKI", "HYUNDAI",
+    "TOYOTA", "HONDA", "MAHINDRA", "BAJAJ", "HERO", "YAMAHA",
+    "ROYAL", "ENFIELD", "EICHER", "BHARATBENZ", "FORCE", "ISUZU",
+    "VOLVO", "SCANIA", "JCB", "DIESEL", "TURBO", "SPEED", "FASTAG"
+}
+
 
 def clean(text: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def is_brand_or_noise(text: str) -> bool:
+    """Check if the text matches or contains known vehicle manufacturer logos or slogans."""
+    clean_text = clean(text)
+    if not clean_text:
+        return True
+    for brand in BRAND_KEYWORDS:
+        if brand in clean_text:
+            return True
+    return False
 
 
 def _coerce(segment: str, want_alpha: bool):
