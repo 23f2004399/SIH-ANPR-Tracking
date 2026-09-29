@@ -223,7 +223,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-
 # Contains Supabase secret key — never commit
 api_call.js
 
@@ -249,6 +248,7 @@ web_videos/
 outputs_test/
 *.mp4
 *.mov
+run_backend.sh
 *.pth
 *.pt
 *.onnx
