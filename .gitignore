@@ -247,3 +247,4 @@ web_videos/
 outputs_test/
 *.mp4
 *.mov
+run_backend.sh
