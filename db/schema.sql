@@ -10,12 +10,12 @@ drop table if exists cameras cascade;
 -- Three hardcoded nodes for the prototype. Coordinates drive the Leaflet
 -- route; video_url points at the browser-playable H.264 re-encode.
 create table cameras (
-    id           text primary key,          -- 'Camera_1' — matches vehicle_logs.csv
+    id           text primary key,          -- 'Camera_4' — matches vehicle_logs.csv
     name         text        not null,
     city         text        not null default 'Chennai',
     latitude     float8      not null,
     longitude    float8      not null,
-    video_url    text,                      -- public URL of cam1.mp4 etc.
+    video_url    text,                      -- public URL of cam4.mp4 etc.
     recorded_at  timestamptz not null,      -- wall-clock start of the footage
     created_at   timestamptz not null default now()
 );

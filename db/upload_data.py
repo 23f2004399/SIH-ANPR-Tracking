@@ -28,17 +28,17 @@ IST_OFFSET = "+05:30"          # footage timestamps are naive local (India) time
 BATCH = 500
 
 # The three prototype nodes, surveyed on site (DMS converted to decimal):
-#   cam1  12°59'07.52"N  80°14'26.24"E
-#   cam2  12°59'03.68"N  80°14'24.87"E
-#   cam3  12°59'04.47"N  80°14'23.43"E
-# cam2/cam3 sit ~50 m apart at the junction; cam1 is ~126 m up the road.
+#   cam4  12°59'07.52"N  80°14'26.24"E
+#   cam5  12°59'03.68"N  80°14'24.87"E
+#   cam6  12°59'04.47"N  80°14'23.43"E
+# cam5/cam6 sit ~50 m apart at the junction; cam4 is ~126 m up the road.
 CAMERAS = [
-    {"id": "Camera_1", "name": "OMR Junction North", "city": "Chennai",
-     "latitude": 12.9854222, "longitude": 80.2406222, "file": "cam1.mp4"},
-    {"id": "Camera_2", "name": "OMR Mid Corridor", "city": "Chennai",
-     "latitude": 12.9843556, "longitude": 80.2402417, "file": "cam2.mp4"},
-    {"id": "Camera_3", "name": "OMR Junction South", "city": "Chennai",
-     "latitude": 12.9845750, "longitude": 80.2398417, "file": "cam3.mp4"},
+    {"id": "Camera_4", "name": "OMR Junction North", "city": "Chennai",
+     "latitude": 12.9854222, "longitude": 80.2406222, "file": "cam4.mp4"},
+    {"id": "Camera_5", "name": "OMR Mid Corridor", "city": "Chennai",
+     "latitude": 12.9843556, "longitude": 80.2402417, "file": "cam5.mp4"},
+    {"id": "Camera_6", "name": "OMR Junction South", "city": "Chennai",
+     "latitude": 12.9845750, "longitude": 80.2398417, "file": "cam6.mp4"},
 ]
 
 

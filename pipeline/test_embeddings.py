@@ -9,10 +9,10 @@ Modes of Operation:
    Takes a vehicle crop from one camera, extracts its 512-d Re-ID embedding,
    searches for that vehicle across all other cameras in the network using cosine
    similarity, pulls chronological sighting metadata from 'vehicle_logs.csv',
-   reconstructs the trajectory route (e.g. CAM1 -> CAM2 -> CAM3 with transit times),
+   reconstructs the trajectory route (e.g. CAM4 -> CAM5 / CAM6 with transit times),
    and displays a visual multi-camera trajectory comparison pop-up.
 
-2. Random Cross-Camera Tracking (--one [--camera <Camera_1>]):
+2. Random Cross-Camera Tracking (--one [--camera <Camera_4>]):
    Picks a random vehicle crop (optionally from a specific camera) and tracks its
    journey across the other cameras.
 
@@ -22,13 +22,13 @@ Modes of Operation:
 
 Usage Examples:
     # 1. Track a specific vehicle image across all other cameras
-    python pipeline/test_embeddings.py --image outputs_test/crops/vehicles/Camera_1_track_190.jpg
+    python pipeline/test_embeddings.py --image outputs_test/crops/vehicles/Camera_4_track_190.jpg
 
     # 2. Trace a specific track by name
-    python pipeline/test_embeddings.py --track Camera_1_track_190
+    python pipeline/test_embeddings.py --track Camera_4_track_190
 
-    # 3. Pick a random vehicle from Camera_1 and trace it
-    python pipeline/test_embeddings.py --one --camera Camera_1
+    # 3. Pick a random vehicle from Camera_4 and trace it
+    python pipeline/test_embeddings.py --one --camera Camera_4
 
     # 4. Pick any random vehicle across all cameras and trace it
     python pipeline/test_embeddings.py --one
@@ -78,7 +78,7 @@ def parse_args() -> argparse.Namespace:
         "--track",
         type=str,
         default="",
-        help="Track key to trace across cameras (e.g. --track Camera_1_track_190)"
+        help="Track key to trace across cameras (e.g. --track Camera_4_track_190)"
     )
     parser.add_argument(
         "--one",
@@ -89,7 +89,7 @@ def parse_args() -> argparse.Namespace:
         "--camera",
         type=str,
         default="",
-        help="Filter origin camera when picking random query with --one (e.g. --camera Camera_1)"
+        help="Filter origin camera when picking random query with --one (e.g. --camera Camera_4)"
     )
     parser.add_argument(
         "--cross_camera",
@@ -135,8 +135,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default="resnet18",
-        help="Re-ID feature extractor model (default: resnet18)"
+        default="veri776",
+        help="Re-ID feature extractor model: 'veri776' (SOTA VeRi-776 Re-ID), 'dinov2', 'resnet50', 'resnet18' (default: veri776)"
     )
     parser.add_argument(
         "--device",
@@ -860,54 +860,64 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
 
     print(" 🧭 JUNCTION TOPOLOGY & BIDIRECTIONAL ROUTE RESOLUTION:")
 
-    if query_cam == "Camera_1":
-        # Vehicle entered at Camera_1 and must take either Camera_2 OR Camera_3
-        c2_cand = camera_best.get("Camera_2")
-        c3_cand = camera_best.get("Camera_3")
+    # Identify Stem/Root corridor and Branch A/B dynamically:
+    # If network has Camera_4, Camera_5, Camera_6:
+    #   Stem is Camera_4; Branches are Camera_5 and Camera_6
+    # If network has Camera_1, Camera_2, Camera_3:
+    #   Stem is Camera_1; Branches are Camera_2 and Camera_3
+    stem_cam = "Camera_4" if "Camera_4" in all_cams else "Camera_1"
+    branch_cams = ("Camera_5", "Camera_6") if stem_cam == "Camera_4" else ("Camera_2", "Camera_3")
 
-        print("   Evaluating Fork Branches (Camera_2 vs Camera_3):")
+    if query_cam == stem_cam:
+        # Vehicle entered at stem corridor and must take either Branch A OR Branch B
+        b1_cam, b2_cam = branch_cams
+        c1_cand = camera_best.get(b1_cam)
+        c2_cand = camera_best.get(b2_cam)
+
+        print(f"   Evaluating Fork Branches ({b1_cam} vs {b2_cam}):")
+        if c1_cand:
+            p1 = c1_cand['plate']
+            print(f"    • {b1_cam} candidate: {c1_cand['key']} | Sim: {c1_cand['sim']:.4f} | "
+                  f"Color: {c1_cand['color_sim']*100:.1f}% | Score: {c1_cand['composite_score']:.4f} | "
+                  f"Plate: {p1} | {c1_cand['transit']['label']}")
         if c2_cand:
             p2 = c2_cand['plate']
-            print(f"    • Camera_2 candidate: {c2_cand['key']} | Sim: {c2_cand['sim']:.4f} | "
+            print(f"    • {b2_cam} candidate: {c2_cand['key']} | Sim: {c2_cand['sim']:.4f} | "
                   f"Color: {c2_cand['color_sim']*100:.1f}% | Score: {c2_cand['composite_score']:.4f} | "
                   f"Plate: {p2} | {c2_cand['transit']['label']}")
-        if c3_cand:
-            p3 = c3_cand['plate']
-            print(f"    • Camera_3 candidate: {c3_cand['key']} | Sim: {c3_cand['sim']:.4f} | "
-                  f"Color: {c3_cand['color_sim']*100:.1f}% | Score: {c3_cand['composite_score']:.4f} | "
-                  f"Plate: {p3} | {c3_cand['transit']['label']}")
 
-        if c2_cand and c3_cand:
-            if c2_cand["composite_score"] >= c3_cand["composite_score"]:
-                confirmed_match = c2_cand
-                rejected_hop = c3_cand
-                if c2_cand.get("plate_matched"):
-                    rej_reason = f"Plate Match Confirmed in Cam 2 ({c2_cand['plate']} vs {q_plate})"
-                else:
-                    rej_reason = f"Lower Match Score ({c3_cand['composite_score']:.3f} vs {c2_cand['composite_score']:.3f})"
-                rejected_hop["rejection_reason"] = f"{rej_reason} | Divergent Fork Rejected"
-                print(f"   ► Decision: Vehicle took Branch Camera_2! Branch Camera_3 REJECTED ({rej_reason}).")
-            else:
-                confirmed_match = c3_cand
+        if c1_cand and c2_cand:
+            if c1_cand["composite_score"] >= c2_cand["composite_score"]:
+                confirmed_match = c1_cand
                 rejected_hop = c2_cand
-                if c3_cand.get("plate_matched"):
-                    rej_reason = f"Plate Match Confirmed in Cam 3 ({c3_cand['plate']} vs {q_plate})"
+                if c1_cand.get("plate_matched"):
+                    rej_reason = f"Plate Match Confirmed in {b1_cam} ({c1_cand['plate']} vs {q_plate})"
                 else:
-                    rej_reason = f"Lower Match Score ({c2_cand['composite_score']:.3f} vs {c3_cand['composite_score']:.3f})"
+                    rej_reason = f"Lower Match Score ({c2_cand['composite_score']:.3f} vs {c1_cand['composite_score']:.3f})"
                 rejected_hop["rejection_reason"] = f"{rej_reason} | Divergent Fork Rejected"
-                print(f"   ► Decision: Vehicle took Branch Camera_3! Branch Camera_2 REJECTED ({rej_reason}).")
+                print(f"   ► Decision: Vehicle took Branch {b1_cam}! Branch {b2_cam} REJECTED ({rej_reason}).")
+            else:
+                confirmed_match = c2_cand
+                rejected_hop = c1_cand
+                if c2_cand.get("plate_matched"):
+                    rej_reason = f"Plate Match Confirmed in {b2_cam} ({c2_cand['plate']} vs {q_plate})"
+                else:
+                    rej_reason = f"Lower Match Score ({c1_cand['composite_score']:.3f} vs {c2_cand['composite_score']:.3f})"
+                rejected_hop["rejection_reason"] = f"{rej_reason} | Divergent Fork Rejected"
+                print(f"   ► Decision: Vehicle took Branch {b2_cam}! Branch {b1_cam} REJECTED ({rej_reason}).")
+        elif c1_cand:
+            confirmed_match = c1_cand
         elif c2_cand:
             confirmed_match = c2_cand
-        elif c3_cand:
-            confirmed_match = c3_cand
 
-    elif query_cam in ("Camera_2", "Camera_3"):
-        # Connected corridor is Camera_1. The other branch is disconnected/parallel.
-        other_branch = "Camera_3" if query_cam == "Camera_2" else "Camera_2"
-        confirmed_match = camera_best.get("Camera_1")
-        print(f"   Origin is {query_cam}. Connected road corridor is Camera_1.")
+    elif query_cam in branch_cams:
+        # Connected corridor is stem corridor. The other branch is disconnected/parallel.
+        b1_cam, b2_cam = branch_cams
+        other_branch = b2_cam if query_cam == b1_cam else b1_cam
+        confirmed_match = camera_best.get(stem_cam)
+        print(f"   Origin is {query_cam}. Connected road corridor is {stem_cam}.")
         if confirmed_match:
-            print(f"    • Connected Camera_1 sighting: {confirmed_match['key']} | Sim: {confirmed_match['sim']:.4f} | "
+            print(f"    • Connected {stem_cam} sighting: {confirmed_match['key']} | Sim: {confirmed_match['sim']:.4f} | "
                   f"Color: {confirmed_match['color_sim']*100:.1f}% | Score: {confirmed_match['composite_score']:.4f} | "
                   f"{confirmed_match['transit']['label']}")
         if other_branch in camera_best:
@@ -1218,7 +1228,7 @@ def main():
     reid_model = get_reid_model(args.model, device=device)
 
     # ---------------------------------------------------------------------
-    # Case A: Track Specific Vehicle by Key (--track <Camera_1_track_190>)
+    # Case A: Track Specific Vehicle by Key (--track <Camera_4_track_190>)
     # ---------------------------------------------------------------------
     if args.track:
         query_img_path = crop_images.get(args.track, "")
@@ -1264,7 +1274,7 @@ def main():
         return
 
     # ---------------------------------------------------------------------
-    # Case C: Pick One Random Vehicle (--one [--camera <Camera_1>])
+    # Case C: Pick One Random Vehicle (--one [--camera <Camera_4>])
     # ---------------------------------------------------------------------
     if args.one:
         # Determine pool of candidates

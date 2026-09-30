@@ -7,7 +7,7 @@ SIH Problem Statement: 26127 (Bharat Electronics Limited)
 Usage:
   python visualize.py 1
   python visualize.py 1 --output_dir ./outputs
-  python visualize.py 1 --camera Camera_1
+  python visualize.py 1 --camera Camera_4
 """
 
 import os
@@ -49,7 +49,7 @@ def parse_args():
         "--camera",
         type=str,
         default="",
-        help="Optional camera filter (e.g. Camera_1)"
+        help="Optional camera filter (e.g. Camera_4)"
     )
     parser.add_argument(
         "--save_preview",
@@ -259,8 +259,8 @@ def main():
     # Load CSV metadata
     meta = load_track_metadata(csv_path, target_id, args.camera)
 
-    camera_id = meta.get("camera_id", "Camera_1") if meta else (
-        os.path.basename(v_path).split("_track_")[0] if v_path else "Camera_1"
+    camera_id = meta.get("camera_id", "Camera_4") if meta else (
+        os.path.basename(v_path).split("_track_")[0] if v_path else "Camera_4"
     )
 
     if v_img is None and p_img is None and meta is None:

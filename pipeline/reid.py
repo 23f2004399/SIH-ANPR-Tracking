@@ -393,25 +393,150 @@ class HybridReID:
 
 
 # =========================================================================
+#  VERI-776 SOTA DOMAIN-TRAINED VEHICLE RE-ID MODEL
+# =========================================================================
+
+class VeRi776ReID:
+    """
+    Industry-Standard Vehicle Re-Identification Model trained on VeRi-776
+    (Rank-1: 93.56%, Rank-5: 97.08%, mAP: 72.95%).
+    Trained specifically for cross-camera vehicle matching with metric learning
+    (Hard Triplet Loss + Cross-Entropy ID Classification).
+    Outputs 512-dimensional L2-normalized feature vectors.
+    """
+    def __init__(self, device: str = None, weights_path: str = "models/resnet34_veri776_deploy.pt"):
+        if device is None:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
+
+        print(f"[VehicleReID] Initializing SOTA VeRi-776 Vehicle Re-ID Model on {self.device}...")
+        self.dim = 512
+
+        # Resolve weights path
+        if not os.path.isabs(weights_path):
+            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            candidate = os.path.join(repo_root, weights_path)
+            if os.path.exists(candidate):
+                weights_path = candidate
+
+        if not os.path.exists(weights_path):
+            url = "https://huggingface.co/dgwon/resnet-34-veri776/resolve/main/resnet34_veri776_deploy.pt"
+            print(f"[VehicleReID] Downloading SOTA VeRi-776 weights from HuggingFace to '{weights_path}'...")
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(weights_path)), exist_ok=True)
+                torch.hub.download_url_to_file(url, weights_path, progress=True)
+            except Exception as e:
+                print(f"[VehicleReID] Auto-download failed: {e}")
+
+        base_model = models.resnet34(weights=None)
+        base_model.fc = nn.Identity()
+
+        if os.path.exists(weights_path):
+            ckpt = torch.load(weights_path, map_location=self.device)
+            state_dict = ckpt.get("state_dict", ckpt)
+            base_model.load_state_dict(state_dict, strict=True)
+            print(f"[VehicleReID] ✅ Loaded VeRi-776 SOTA weights ({os.path.basename(weights_path)}) | Rank-1: 93.6%, Rank-5: 97.1%")
+        else:
+            print(f"[VehicleReID] ⚠️ VeRi-776 weights not found at '{weights_path}', falling back to ImageNet ResNet34.")
+            try:
+                from torchvision.models import ResNet34_Weights
+                base_model = models.resnet34(weights=ResNet34_Weights.DEFAULT)
+            except Exception:
+                base_model = models.resnet34(pretrained=True)
+            base_model.fc = nn.Identity()
+
+        self.model = base_model.to(self.device)
+        self.model.eval()
+
+        self.transform = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ])
+
+    @torch.no_grad()
+    def get_embedding(self, image: np.ndarray) -> List[float]:
+        if image is None or image.size == 0:
+            return [0.0] * self.dim
+
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            img_rgb = image[:, :, ::-1].copy()
+        else:
+            img_rgb = image
+
+        pil_img = Image.fromarray(img_rgb)
+        input_tensor = self.transform(pil_img).unsqueeze(0).to(self.device)
+        features = self.model(input_tensor)
+        feature_vector = features.squeeze().cpu().numpy()
+
+        norm = np.linalg.norm(feature_vector)
+        if norm > 0:
+            feature_vector = feature_vector / norm
+
+        return feature_vector.tolist()
+
+    @torch.no_grad()
+    def get_batch_embeddings(self, images: List[np.ndarray], batch_size: int = 64) -> np.ndarray:
+        if not images:
+            return np.empty((0, self.dim), dtype=np.float32)
+
+        all_features = []
+        for i in range(0, len(images), batch_size):
+            chunk = images[i:i + batch_size]
+            tensors = []
+            for img in chunk:
+                if img is None or img.size == 0:
+                    tensors.append(torch.zeros((3, 256, 256), dtype=torch.float32))
+                    continue
+                if len(img.shape) == 3 and img.shape[2] == 3:
+                    img_rgb = img[:, :, ::-1].copy()
+                else:
+                    img_rgb = img
+                pil_img = Image.fromarray(img_rgb)
+                tensors.append(self.transform(pil_img))
+
+            batch_tensor = torch.stack(tensors).to(self.device)
+            feats = self.model(batch_tensor)
+            feats = feats.cpu().numpy().astype(np.float32)
+
+            if feats.ndim == 1:
+                feats = feats.reshape(1, -1)
+
+            norms = np.linalg.norm(feats, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            feats = feats / norms
+            all_features.append(feats)
+
+        return np.vstack(all_features)
+
+
+# =========================================================================
 #  FACTORY FUNCTION
 # =========================================================================
 
-def get_reid_model(model_name: str = "dinov2", device: str = None, hybrid_color: bool = True) -> BaseReID:
+def get_reid_model(model_name: str = "veri776", device: str = None, hybrid_color: bool = True) -> BaseReID:
     """
     Factory to instantiate Re-ID feature extractors.
     
     Supported backbones:
-    - 'dinov2' / 'dinov2_vits14' : Meta DINOv2 ViT-S/14 (384-d, SOTA zero-shot Re-ID)
-    - 'dinov2_vitb14'            : Meta DINOv2 ViT-B/14 (768-d)
-    - 'resnet50'                 : ResNet50 (2048-d)
-    - 'resnet18'                 : ResNet18 (512-d, lightweight baseline)
+    - 'veri776' / 'veri'        : VeRi-776 Domain-Trained SOTA (512-d, Rank-1: 93.6%, Rank-5: 97.1%) [RECOMMENDED]
+    - 'dinov2' / 'dinov2_vits14': Meta DINOv2 ViT-S/14 (384-d, Vision Transformer)
+    - 'dinov2_vitb14'           : Meta DINOv2 ViT-B/14 (768-d)
+    - 'resnet50'                : ResNet50 (2048-d)
+    - 'resnet18'                : ResNet18 (512-d baseline)
     
     If `hybrid_color=True`, wraps in `HybridReID` to bake normalized HSV body color
-    palette into the embedding vector.
+    palette into the embedding vector (512 + 16 = 528 dims).
     """
     model_name = model_name.lower().strip()
 
-    if "dinov2" in model_name:
+    if "veri" in model_name:
+        base_model = VeRi776ReID(device=device)
+    elif "dinov2" in model_name:
         sub = "dinov2_vitb14" if "vitb" in model_name else "dinov2_vits14"
         base_model = DINOv2ReID(device=device, model_name=sub)
     elif model_name == "resnet50":
@@ -419,9 +544,8 @@ def get_reid_model(model_name: str = "dinov2", device: str = None, hybrid_color:
     elif model_name == "resnet18":
         base_model = ResNet18ReID(device=device)
     else:
-        # Default fallback to DINOv2 on GPU, ResNet18 on CPU
-        print(f"[VehicleReID] Unknown model '{model_name}'. Defaulting to ResNet18...")
-        base_model = ResNet18ReID(device=device)
+        print(f"[VehicleReID] Model '{model_name}' unrecognized. Defaulting to SOTA VeRi-776...")
+        base_model = VeRi776ReID(device=device)
 
     if hybrid_color:
         return HybridReID(base_model=base_model, color_weight=0.15)

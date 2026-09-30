@@ -800,8 +800,14 @@ class MultiCameraANPRPipeline:
         total = len(video_paths)
         logger.info(f"Initializing ANPR Processing Pipeline for {total} video stream(s)...")
 
-        for idx, v_path in enumerate(video_paths, start=1):
-            cam_id = f"Camera_{idx}"
+        start_num = getattr(self.args, "camera_start_idx", 4)
+        custom_ids = getattr(self.args, "camera_ids", []) or []
+
+        for idx, v_path in enumerate(video_paths):
+            if idx < len(custom_ids):
+                cam_id = custom_ids[idx]
+            else:
+                cam_id = f"Camera_{start_num + idx}"
             self.process_video_stream(v_path, cam_id)
 
         logger.info("\n" + "="*70)
@@ -837,6 +843,18 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="./outputs",
         help="Directory to save output annotated videos, crops, and vehicle_logs.csv (default: ./outputs)"
+    )
+    parser.add_argument(
+        "--camera_start_idx",
+        type=int,
+        default=4,
+        help="Starting index for camera numbering (default: 4 -> Camera_4, Camera_5, Camera_6)"
+    )
+    parser.add_argument(
+        "--camera_ids",
+        nargs="+",
+        default=[],
+        help="Explicit camera IDs list (e.g. --camera_ids Camera_4 Camera_5 Camera_6)"
     )
     parser.add_argument(
         "--vehicle_model",
@@ -892,8 +910,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reid_model",
         type=str,
-        default="dinov2",
-        help="Vehicle Re-ID model architecture: 'dinov2' (SOTA Vision Transformer), 'resnet50', 'resnet18' (default: dinov2)"
+        default="veri776",
+        help="Vehicle Re-ID model architecture: 'veri776' (SOTA VeRi-776 Domain Model), 'dinov2', 'resnet50', 'resnet18' (default: veri776)"
     )
     parser.add_argument(
         "--hybrid_color",
