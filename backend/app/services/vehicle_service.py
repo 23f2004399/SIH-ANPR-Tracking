@@ -38,8 +38,6 @@ async def search_license_plates(conn: asyncpg.Connection, query: str, exact: boo
     cfg_veh = find_trajectory_by_plate(normalized_query)
     if cfg_veh:
         hops = cfg_veh["hops"]
-        first_hop = hops[0]
-        last_hop = hops[-1]
         mock_records = []
         for idx, h in enumerate(hops):
             mock_records.append({
