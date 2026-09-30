@@ -54,3 +54,30 @@ async def get_similar_vehicles(
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/search/image")
+@router.post("/search/image")
+async def search_image(
+    image_name: str = Query(..., description="Image filename or path to search for")
+):
+    try:
+        from pipeline.config_loader import find_trajectory_by_image
+        cfg_veh = find_trajectory_by_image(image_name)
+        if not cfg_veh:
+            raise HTTPException(status_code=404, detail=f"No matching trajectory found for image '{image_name}'")
+        return {
+            "success": True,
+            "data": {
+                "plate": cfg_veh["plate"],
+                "vehicle_type": cfg_veh["vehicle_type"],
+                "color": cfg_veh["color"],
+                "route": cfg_veh["route"],
+                "total_transit_seconds": cfg_veh["total_transit_seconds"],
+                "hops": cfg_veh["hops"]
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

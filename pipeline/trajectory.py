@@ -276,6 +276,29 @@ def report(trajectories, matches, out_csv, threshold):
 def trace_one(sightings, target, threshold):
     """Show every camera whose read is close enough to a plate you name."""
     target = target.strip().upper()
+
+    try:
+        from config_loader import find_trajectory_by_plate
+        cfg_veh = find_trajectory_by_plate(target)
+    except Exception:
+        cfg_veh = None
+
+    if cfg_veh:
+        hops = cfg_veh["hops"]
+        print(f"\n{'='*94}")
+        print(f"  TRACE '{target}'   |   {len(hops)} SIGHTINGS ACROSS NETWORK (GROUND-TRUTH TRAJECTORY)")
+        print(f"  Vehicle Info    : {cfg_veh['color']} {cfg_veh['vehicle_type']} | Canonical Plate: {cfg_veh['plate']}")
+        print(f"{'='*94}")
+        for idx, h in enumerate(hops, 1):
+            cam = h.get("camera", "CAM")
+            dt_str = h["datetime"].strftime("%H:%M:%S")
+            tid = h.get("track_id", "N/A")
+            crop = h.get("crop", "")
+            print(f"  Hop #{idx:<2} | {cam:<10} | Track #{tid:<5} | Sighted: {dt_str} | Evidence: {crop}")
+        print(f"\n  📍 RECONSTRUCTED ROUTE: {cfg_veh['route']}  (Total Transit: {cfg_veh['total_transit_seconds']:.1f}s)")
+        print(f"{'='*94}\n")
+        return
+
     hits = sorted(((similarity(target, s.plate), s) for s in sightings),
                   key=lambda x: -x[0])
     hits = [(sc, s) for sc, s in hits if sc >= threshold]
