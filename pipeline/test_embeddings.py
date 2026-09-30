@@ -21,19 +21,25 @@ Modes of Operation:
    MRR, and separation margin metrics.
 
 Usage Examples:
-    # 1. Track a specific vehicle image across all other cameras
+    # 1. Track a specific vehicle image across other cameras (filters AFTER query time by default)
     python pipeline/test_embeddings.py --image outputs_test/crops/vehicles/Camera_4_track_190.jpg
 
     # 2. Trace a specific track by name
     python pipeline/test_embeddings.py --track Camera_4_track_190
 
-    # 3. Pick a random vehicle from Camera_4 and trace it
+    # 3. Pick a random vehicle from Camera_4 and trace downstream sightings
     python pipeline/test_embeddings.py --one --camera Camera_4
 
-    # 4. Pick any random vehicle across all cameras and trace it
-    python pipeline/test_embeddings.py --one
+    # 4. Search for a custom image with explicit reference time
+    python pipeline/test_embeddings.py --image path/to/vehicle.jpg --time "15:58:20"
 
-    # 5. Full benchmark across all sample crops
+    # 5. Filter matches strictly to an explicit time range
+    python pipeline/test_embeddings.py --image path/to/vehicle.jpg --time_range "15:58:20, 16:01:00"
+
+    # 6. Disable temporal filter and match across all recorded times
+    python pipeline/test_embeddings.py --one --all_times
+
+    # 7. Full benchmark across all sample crops
     python pipeline/test_embeddings.py
 """
 
@@ -45,7 +51,7 @@ import random
 import argparse
 import time
 import difflib
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import List, Dict, Tuple, Optional
 
@@ -159,13 +165,68 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--top_n",
         type=int,
-        default=5,
-        help="Number of top matches to display visually and in terminal logs (default: 5)"
+        default=1,
+        help="Number of matched candidates to display (default: 1 for clean single optimal path; use --top_n 5 to view candidate gallery)"
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print detailed match logs"
+    )
+    # Temporal filtering arguments
+    parser.add_argument(
+        "--time",
+        type=str,
+        default="",
+        help="Sighting timestamp of the query image (e.g. '15:58:20' or '2026-08-31 15:58:20')"
+    )
+    parser.add_argument(
+        "--time_range",
+        type=str,
+        default="",
+        help="Explicit time window to search for matches 'start,end' (e.g. '15:58:20,16:01:00')"
+    )
+    parser.add_argument(
+        "--start_time",
+        type=str,
+        default="",
+        help="Explicit start timestamp to search for matches (e.g. '15:58:20')"
+    )
+    parser.add_argument(
+        "--end_time",
+        type=str,
+        default="",
+        help="Explicit end timestamp to search for matches (e.g. '16:01:00')"
+    )
+    parser.add_argument(
+        "--forward_only",
+        action="store_true",
+        default=False,
+        help="Search only forward (after query sighting time). Default: False (searches both ways / bidirectional)."
+    )
+    parser.add_argument(
+        "--after",
+        action="store_true",
+        dest="forward_only",
+        help="Alias for --forward_only: search only after query sighting time"
+    )
+    parser.add_argument(
+        "--max_gap",
+        type=float,
+        default=300.0,
+        help="Maximum forward transit gap in seconds after query image (default: 300.0s = 5 mins)"
+    )
+    parser.add_argument(
+        "--tolerance",
+        type=float,
+        default=2.0,
+        help="Clock tolerance buffer in seconds before query sighting (default: 2.0s)"
+    )
+    parser.add_argument(
+        "--all_times",
+        action="store_true",
+        default=False,
+        help="Disable temporal filtering and search across all recorded timestamps (default: False)"
     )
     return parser.parse_args()
 
@@ -280,9 +341,17 @@ def load_gallery_by_camera(crops_dir: str) -> Tuple[Dict[str, List[str]], Dict[s
     return dict(camera_keys), camera_matrices, crop_images
 
 
-def parse_timestamp(ts_str: str) -> Optional[datetime]:
+def parse_timestamp(ts_str: Optional[str], default_date: str = "2026-08-31") -> Optional[datetime]:
     if not ts_str:
         return None
+    ts_str = str(ts_str).strip()
+    if not ts_str:
+        return None
+
+    # If only time was provided (e.g. '15:58:20' or '15:58:20.200'), prefix default date
+    if " " not in ts_str and "T" not in ts_str and "-" not in ts_str:
+        ts_str = f"{default_date} {ts_str}"
+
     for fmt in (TS_FMT, "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
         try:
             return datetime.strptime(ts_str, fmt)
@@ -415,25 +484,34 @@ def build_multi_match_canvas(query_card_data: Dict,
                              matches: List[Dict],
                              route_summary: str,
                              save_path: str,
-                             rejected_hop: Optional[Dict] = None) -> np.ndarray:
+                             rejected_hop: Optional[Dict] = None,
+                             time_filter_label: str = "") -> np.ndarray:
     """
     Constructs an interactive multi-camera visual dashboard displaying:
     - Leftmost card: Query vehicle crop with telemetry and origin metadata
     - Rightward cards: Top candidate matches ranked across other cameras,
       showing vehicle crops, rank badges, Re-ID similarity, color consistency %,
-      bidirectional transit direction (Incoming / Outgoing), and plate match info.
+      transit direction (Incoming / Outgoing), and plate match info.
     """
     num_matches = len(matches)
     total_cards = 1 + num_matches
 
-    card_w = 255
-    card_h = 450
-    gap = 16
-    margin_x = 24
+    # Responsive card sizing: clean, large cards for optimal 1-match view, compact for multi-match
+    if num_matches <= 1:
+        card_w = 330
+        card_h = 475
+        gap = 32
+        margin_x = 36
+    else:
+        card_w = 255
+        card_h = 450
+        gap = 16
+        margin_x = 24
+
     header_h = 88
     footer_h = 38
 
-    total_w = (margin_x * 2) + (total_cards * card_w) + ((total_cards - 1) * gap)
+    total_w = max(800, (margin_x * 2) + (total_cards * card_w) + ((total_cards - 1) * gap))
     total_h = header_h + card_h + footer_h
 
     canvas = np.full((total_h, total_w, 3), (20, 21, 28), dtype=np.uint8)
@@ -446,7 +524,11 @@ def build_multi_match_canvas(query_card_data: Dict,
     cv2.putText(canvas, title_str, (margin_x, 32),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 2, cv2.LINE_AA)
 
-    sub_info = f"Route: {route_summary} | Bidirectional Traffic Modeling (Incoming/Outgoing) | Showing Top-{num_matches} Matches"
+    time_str = f" | {time_filter_label}" if time_filter_label else ""
+    if num_matches <= 1:
+        sub_info = f"Reconstructed Route: {route_summary}{time_str}"
+    else:
+        sub_info = f"Route: {route_summary}{time_str} | Showing Top-{num_matches} Matches"
     cv2.putText(canvas, sub_info, (margin_x, 62),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.38, (110, 215, 255), 1, cv2.LINE_AA)
 
@@ -477,17 +559,29 @@ def build_multi_match_canvas(query_card_data: Dict,
                     cv2.FONT_HERSHEY_SIMPLEX, 0.44, (255, 255, 255), 2, cv2.LINE_AA)
         pill_offset_x = px1 - 12
 
-    # Badge 2: Bidirectional Pill
-    bidi_txt = " BIDIRECTIONAL "
-    (bw, bh), _ = cv2.getTextSize(bidi_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+    # Badge 2: Temporal Filter Pill
+    if "BIDIRECTIONAL" in time_filter_label:
+        badge_txt = " BIDIRECTIONAL "
+        badge_bg = (20, 110, 100)
+    elif "FORWARD" in time_filter_label or "AFTER" in time_filter_label:
+        badge_txt = " FORWARD ONLY "
+        badge_bg = (20, 90, 140)
+    elif "TIME" in time_filter_label:
+        badge_txt = " TIME FILTERED "
+        badge_bg = (80, 50, 120)
+    else:
+        badge_txt = " ALL TIMES "
+        badge_bg = (40, 50, 70)
+
+    (bw, bh), _ = cv2.getTextSize(badge_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
     bx2 = pill_offset_x
     bx1 = bx2 - bw - 12
     by1 = 20
     by2 = 20 + bh + 14
-    cv2.rectangle(canvas, (bx1, by1), (bx2, by2), (40, 50, 70), -1)
-    cv2.rectangle(canvas, (bx1, by1), (bx2, by2), (80, 120, 180), 1)
-    cv2.putText(canvas, bidi_txt, (bx1 + 6, by2 - 7),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.42, (180, 220, 255), 1, cv2.LINE_AA)
+    cv2.rectangle(canvas, (bx1, by1), (bx2, by2), badge_bg, -1)
+    cv2.rectangle(canvas, (bx1, by1), (bx2, by2), (100, 180, 255), 1)
+    cv2.putText(canvas, badge_txt, (bx1 + 6, by2 - 7),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.42, (200, 230, 255), 1, cv2.LINE_AA)
 
     # --- Draw Card 0: Query Vehicle ---
     card_y = header_h + 12
@@ -505,15 +599,18 @@ def build_multi_match_canvas(query_card_data: Dict,
     q_entry_short = q_entry.split(" ")[-1][:8] if " " in q_entry else q_entry
     q_exit_short = q_exit.split(" ")[-1][:8] if " " in q_exit else q_exit
 
+    time_disp = f"Time: {q_entry_short} -> {q_exit_short}" if q_entry != "N/A" else "Time: Unspecified"
+    filter_disp = f"Filter: {time_filter_label[:22]}" if time_filter_label else "Filter: All Times"
+
     q_details = [
         (f"Track ID: #{q_track}", (220, 220, 230)),
         (f"Plate: {q_plate} ({q_conf:.0f}%)" if q_plate != "UNKNOWN" else "Plate: UNKNOWN",
          (255, 215, 0) if q_plate != "UNKNOWN" else (160, 160, 175)),
-        (f"Time: {q_entry_short} -> {q_exit_short}", (180, 200, 220)),
-        (f"Duration: {q_dur:.1f}s in feed", (170, 180, 195)),
+        (time_disp, (180, 200, 220)),
+        (f"Duration: {q_dur:.1f}s in feed" if q_dur > 0 else "Duration: Single snapshot", (170, 180, 195)),
         (f"Corridor: {q_cam} (Origin)", (100, 220, 255)),
         ("Role: Baseline Query", (100, 220, 255)),
-        ("Search: All Target Cameras", (150, 200, 240)),
+        (filter_disp, (150, 200, 240)),
     ]
 
     render_match_card(
@@ -534,6 +631,23 @@ def build_multi_match_canvas(query_card_data: Dict,
     )
 
     cur_x += card_w + gap
+
+    # If no candidates matched the temporal filter
+    if num_matches == 0:
+        no_x = cur_x
+        no_w = 440
+        cv2.rectangle(canvas, (no_x, card_y), (no_x + no_w, card_y + card_h), (28, 29, 37), -1)
+        cv2.rectangle(canvas, (no_x, card_y), (no_x + no_w, card_y + card_h), (60, 65, 80), 2)
+        cv2.putText(canvas, "NO CANDIDATES IN TIME WINDOW", (no_x + 18, card_y + 45),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.46, (255, 120, 120), 2, cv2.LINE_AA)
+        cv2.putText(canvas, f"Filter: {time_filter_label}", (no_x + 18, card_y + 85),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.38, (180, 190, 210), 1, cv2.LINE_AA)
+        cv2.putText(canvas, "No downstream sightings recorded in this window.", (no_x + 18, card_y + 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (140, 150, 170), 1, cv2.LINE_AA)
+        cv2.putText(canvas, "Vehicle may have parked or exited network.", (no_x + 18, card_y + 150),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (140, 150, 170), 1, cv2.LINE_AA)
+        cv2.putText(canvas, "Try extending --max_gap or using --all_times.", (no_x + 18, card_y + 185),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, (100, 200, 255), 1, cv2.LINE_AA)
 
     # --- Draw Match Cards 1 to N ---
     for idx, match in enumerate(matches, start=1):
@@ -564,7 +678,10 @@ def build_multi_match_canvas(query_card_data: Dict,
             else:
                 border_col = (30, 160, 240)  # Amber
                 border_th = 2
-            card_title = f"RANK #{idx} [BEST MATCH]"
+            if num_matches == 1:
+                card_title = f"OPTIMAL MATCH [{m_cam}]" if (m_confirmed or m_comp >= 0.78) else f"BEST CANDIDATE [{m_cam}]"
+            else:
+                card_title = f"RANK #{idx} [BEST MATCH]"
         else:
             border_col = (70, 75, 95)
             border_th = 2
@@ -703,13 +820,22 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
                                   output_dir: str = "./outputs",
                                   no_popup: bool = False,
                                   custom_save_path: str = "",
-                                  top_n: int = 5):
+                                  top_n: int = 1,
+                                  query_time: str = "",
+                                  time_range: str = "",
+                                  start_time: str = "",
+                                  end_time: str = "",
+                                  forward_only: bool = False,
+                                  max_gap_sec: float = 300.0,
+                                  tolerance_sec: float = 2.0,
+                                  all_times: bool = False):
     """
     Given a query image from one camera, searches for the matching vehicle across
     other cameras in both directions (incoming and outgoing), enforcing the 2-camera
     network topology constraint (a vehicle can only appear in AT MOST 2 cameras, never all 3).
-    Extracts CSV metadata, ranks Top-N matches across the network with Re-ID feature similarity,
-    color consistency gating, and bidirectional transit times, and visualizes all candidates.
+    Pre-filters candidate embeddings chronologically based on sighting timestamps or user window,
+    ranks optimal matches across the network with Re-ID feature similarity, color consistency gating,
+    and bidirectional transit times, and visualizes the reconstructed trajectory.
     """
     if not os.path.exists(query_img_path):
         print(f"\n[ERROR] Query image does not exist: {query_img_path}")
@@ -719,6 +845,14 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
     if query_img is None or query_img.size == 0:
         print(f"\n[ERROR] Could not load image: {query_img_path}")
         sys.exit(1)
+
+    # 0. Auto-detect base date from CSV telemetry if present
+    base_date = "2026-08-31"
+    for m in csv_metadata.values():
+        ts = m.get("entry_timestamp", "")
+        if ts and len(ts) >= 10 and ts[4] == '-' and ts[7] == '-':
+            base_date = ts[:10]
+            break
 
     # 1. Determine origin camera & track ID from path if available
     query_key = None
@@ -738,16 +872,74 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
     if norm > 0:
         q_emb = q_emb / norm
 
-    # 3. Pull Query Metadata
+    # 3. Pull Query Metadata & Resolve Reference Sighting Timestamp
     query_meta = csv_metadata.get(query_key, {}) if query_key else {}
     q_plate = query_meta.get("plate_number", "UNKNOWN").strip().upper()
-    query_entry_dt = parse_timestamp(query_meta.get("entry_timestamp", ""))
+    query_entry_dt = parse_timestamp(query_meta.get("entry_timestamp", ""), default_date=base_date)
+    query_exit_dt = parse_timestamp(query_meta.get("exit_timestamp", ""), default_date=base_date)
     q_dur = 0.0
     if query_meta:
         q_dur = float(query_meta.get("exit_offset_sec") or 0.0) - float(query_meta.get("entry_offset_sec") or 0.0)
 
+    # Reference timestamp for query sighting
+    ref_dt = None
+    if query_time:
+        ref_dt = parse_timestamp(query_time, default_date=base_date)
+    elif query_entry_dt:
+        ref_dt = query_entry_dt
+    elif query_exit_dt:
+        ref_dt = query_exit_dt
+
+    # 3b. Determine Temporal Filtering Window [t_min, t_max]
+    t_min: Optional[datetime] = None
+    t_max: Optional[datetime] = None
+    time_filter_label = ""
+    filter_mode_desc = ""
+
+    if all_times:
+        t_min = None
+        t_max = None
+        time_filter_label = "ALL TIMES"
+        filter_mode_desc = "ALL TIMES (--all_times specified, matching across full timeline)"
+    elif time_range:
+        parts = [p.strip() for p in re.split(r'[,;]|\s+to\s+', time_range) if p.strip()]
+        if len(parts) >= 2:
+            t_min = parse_timestamp(parts[0], default_date=base_date)
+            t_max = parse_timestamp(parts[1], default_date=base_date)
+        elif len(parts) == 1:
+            t_min = parse_timestamp(parts[0], default_date=base_date)
+            t_max = t_min + timedelta(seconds=max_gap_sec) if t_min else None
+        time_filter_label = f"TIME RANGE: {t_min.strftime('%H:%M:%S') if t_min else '*'} -> {t_max.strftime('%H:%M:%S') if t_max else '*'}"
+        filter_mode_desc = f"EXPLICIT TIME RANGE ({time_filter_label})"
+    elif start_time or end_time:
+        t_min = parse_timestamp(start_time, default_date=base_date) if start_time else None
+        t_max = parse_timestamp(end_time, default_date=base_date) if end_time else None
+        if t_min and not t_max:
+            t_max = t_min + timedelta(seconds=max_gap_sec)
+        elif t_max and not t_min:
+            t_min = t_max - timedelta(seconds=max_gap_sec)
+        time_filter_label = f"TIME WINDOW: {t_min.strftime('%H:%M:%S') if t_min else '*'} -> {t_max.strftime('%H:%M:%S') if t_max else '*'}"
+        filter_mode_desc = f"EXPLICIT TIME WINDOW ({time_filter_label})"
+    elif ref_dt is not None:
+        if forward_only:
+            t_min = ref_dt - timedelta(seconds=tolerance_sec)
+            t_max = ref_dt + timedelta(seconds=max_gap_sec)
+            time_filter_label = f"FORWARD ONLY: {ref_dt.strftime('%H:%M:%S')} -> {t_max.strftime('%H:%M:%S')} (+{int(max_gap_sec)}s)"
+            filter_mode_desc = f"FORWARD ONLY (After Query: {ref_dt.strftime('%H:%M:%S')} +{max_gap_sec:.0f}s, tolerance -{tolerance_sec:.1f}s)"
+        else:
+            # Default: Bidirectional search both ways (both incoming from and outgoing to connected cameras)
+            t_min = ref_dt - timedelta(seconds=max_gap_sec)
+            t_max = ref_dt + timedelta(seconds=max_gap_sec)
+            time_filter_label = f"BIDIRECTIONAL: {t_min.strftime('%H:%M:%S')} <-> {t_max.strftime('%H:%M:%S')} (±{int(max_gap_sec)}s)"
+            filter_mode_desc = f"BIDIRECTIONAL CORRIDOR SEARCH (Optimal Upstream/Downstream: ±{max_gap_sec:.0f}s around {ref_dt.strftime('%H:%M:%S')})"
+    else:
+        t_min = None
+        t_max = None
+        time_filter_label = "ALL TIMES (EXTERNAL QUERY)"
+        filter_mode_desc = "ALL TIMES (External image without sighting timestamp or window)"
+
     print("\n" + "=" * 90)
-    print(" 🚗 MULTI-CAMERA VEHICLE RE-ID & TRAJECTORY TRACKING (BIDIRECTIONAL FLOW)")
+    print(" 🚗 MULTI-CAMERA VEHICLE RE-ID & TRAJECTORY TRACKING (BIDIRECTIONAL RESOLUTION)")
     print("=" * 90)
     print(f"  Query Image Path   : {query_img_path}")
     if query_key:
@@ -757,8 +949,15 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
               f"({query_meta.get('average_ocr_confidence', 0.0):.1f}% OCR confidence)")
         print(f"  Entry Window       : {query_meta.get('entry_timestamp', 'N/A')} -> "
               f"{query_meta.get('exit_timestamp', 'N/A')} (Duration: {q_dur:.1f}s)")
+    elif ref_dt:
+        print(f"  Reference Time     : {ref_dt.strftime('%Y-%m-%d %H:%M:%S')}")
     else:
         print("  Query Type         : Custom External Image (Searching across network)")
+    print(f"  Time Filter Mode   : {filter_mode_desc}")
+    if t_min or t_max:
+        w_min_s = t_min.strftime('%Y-%m-%d %H:%M:%S') if t_min else "Beginning of Feed"
+        w_max_s = t_max.strftime('%Y-%m-%d %H:%M:%S') if t_max else "End of Feed"
+        print(f"  Search Window      : {w_min_s} -> {w_max_s}")
     print("-" * 90)
 
     # 4. Search and Multi-Modal Scoring for Every Target Camera
@@ -775,21 +974,49 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
         if len(keys) == 0:
             continue
 
-        sims = np.dot(matrix, q_emb)
+        # 4a. Temporal Pre-Filtering: restrict candidates to search window
+        if t_min is not None or t_max is not None:
+            valid_indices = []
+            for idx, c_k in enumerate(keys):
+                c_m = csv_metadata.get(c_k, {})
+                c_ent = parse_timestamp(c_m.get("entry_timestamp", ""), default_date=base_date)
+                c_ext = parse_timestamp(c_m.get("exit_timestamp", ""), default_date=base_date)
+                cand_dt = c_ent or c_ext
+
+                if cand_dt is not None:
+                    if t_min is not None and cand_dt < t_min:
+                        continue
+                    if t_max is not None and cand_dt > t_max:
+                        continue
+                    valid_indices.append(idx)
+
+            if not valid_indices:
+                print(f"  ℹ️  [{t_cam}] 0 / {len(keys)} candidates fall within temporal window ({time_filter_label}). Skipping camera.")
+                continue
+
+            sub_keys = [keys[i] for i in valid_indices]
+            sub_matrix = matrix[valid_indices]
+        else:
+            sub_keys = keys
+            sub_matrix = matrix
+
+        sims = np.dot(sub_matrix, q_emb)
         ranked = np.argsort(-sims)
 
-        # Evaluate candidates with Multi-Modal Fusion (Re-ID + Color + Plate + Bidirectional Transit)
+        # Evaluate candidates with Multi-Modal Fusion (Re-ID + Color + Plate + Forward Transit)
         cand_list = []
         for r_idx in ranked[:30]:
-            c_k = keys[r_idx]
+            c_k = sub_keys[r_idx]
             c_s = float(sims[r_idx])
             c_m = csv_metadata.get(c_k, {})
             c_p = c_m.get("plate_number", "UNKNOWN").strip().upper()
             c_conf = float(c_m.get("average_ocr_confidence") or 0.0)
-            c_entry_dt = parse_timestamp(c_m.get("entry_timestamp", ""))
+            c_entry_dt = parse_timestamp(c_m.get("entry_timestamp", ""), default_date=base_date)
 
             gap_sec = None
-            if query_entry_dt and c_entry_dt:
+            if ref_dt and c_entry_dt:
+                gap_sec = (c_entry_dt - ref_dt).total_seconds()
+            elif query_entry_dt and c_entry_dt:
                 gap_sec = (c_entry_dt - query_entry_dt).total_seconds()
 
             transit = format_transit_details(gap_sec, query_cam, t_cam)
@@ -818,10 +1045,13 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
                 elif c_sim >= 0.80:
                     composite += 0.08  # Consistency bonus
 
-            # Bidirectional Transit Plausibility:
-            # Vehicles travel both directions. Corridor transit within 180s receives plausibility bonus.
-            if gap_sec is not None and abs(gap_sec) <= 180:
+            # Plausible bidirectional transit bonus:
+            # Vehicles travel both directions (incoming and outgoing). Adjacent corridor transit receives bonus.
+            if gap_sec is not None and abs(gap_sec) <= 180.0:
                 composite += 0.05
+                # Strong proximity bonus for immediate corridor sightings within 60s
+                if abs(gap_sec) <= 60.0:
+                    composite += 0.05
 
             cand_list.append({
                 "camera_id": t_cam,
@@ -975,26 +1205,35 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
     route_parts = []
     for h in trajectory_hops:
         cid = h["camera_id"].replace("Camera_", "CAM")
+        ts = h.get("entry_dt")
+        ts_str = f" ({ts.strftime('%H:%M:%S')})" if ts else ""
         if h.get("is_origin"):
-            route_parts.append(f"{cid} (ORIGIN)")
+            route_parts.append(f"{cid}{ts_str} [QUERY]")
         else:
             dir_str = h.get("transit", {}).get("direction", "Match")
-            route_parts.append(f"{cid} ({dir_str} {h['sim']:.3f})")
+            route_parts.append(f"{cid}{ts_str} [{dir_str} {h['sim']:.3f}]")
     if len(trajectory_hops) == 1:
         route_parts.append("[NO NETWORK MATCH (<0.78)]")
-    route_str = " -> ".join(route_parts)
+    route_str = " ──► ".join(route_parts)
 
     print("-" * 90)
     print(f" 📍 CONFIRMED TRAJECTORY ROUTE:")
     print(f"    {route_str}")
     print("-" * 90)
 
-    # 8. Print Top-N Overall Matches Across Network
-    print(f" 🏆 TOP {len(top_overall_matches)} MATCHED VEHICLES ACROSS CAMERAS (MULTI-MODAL RANKING):\n")
+    # 8. Print Match Results
+    if top_n == 1:
+        print(" 🏆 OPTIMAL CROSS-CAMERA VEHICLE MATCH:\n")
+    else:
+        print(f" 🏆 TOP {len(top_overall_matches)} MATCHED VEHICLES ACROSS CAMERAS (MULTI-MODAL RANKING):\n")
 
     for rank, m in enumerate(top_overall_matches, start=1):
-        tag = "CONFIRMED MATCH" if m.get("is_confirmed") else ("TOP CANDIDATE" if rank == 1 else "CANDIDATE")
-        print(f"  [RANK #{rank}] {m['key']} ──► {tag} (Composite Score: {m['composite_score']:.4f})")
+        if top_n == 1:
+            tag = "CONFIRMED MATCH" if m.get("is_confirmed") else "BEST CANDIDATE"
+            print(f"  ► {tag}: {m['key']} (Composite Score: {m['composite_score']:.4f})")
+        else:
+            tag = "CONFIRMED MATCH" if m.get("is_confirmed") else ("TOP CANDIDATE" if rank == 1 else "CANDIDATE")
+            print(f"  [RANK #{rank}] {m['key']} ──► {tag} (Composite Score: {m['composite_score']:.4f})")
         print(f"     • Camera & Track : {m['camera_id']} | Track ID #{m['track_id']}")
         print(f"     • Re-ID Cosine   : {m['sim']:.4f} (Deep Feature Cosine Similarity)")
         print(f"     • Color Match    : {m['color_sim']*100:.1f}% ({'Consistent Vehicle Palette' if m['color_sim']>=0.70 else 'Color Mismatch'})")
@@ -1045,8 +1284,8 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
         "track_id": query_meta.get("track_id", query_key.split("_track_")[-1] if query_key else "N/A"),
         "plate": q_plate,
         "conf": query_meta.get("average_ocr_confidence", 0.0),
-        "entry_ts": query_meta.get("entry_timestamp", "N/A"),
-        "exit_ts": query_meta.get("exit_timestamp", "N/A"),
+        "entry_ts": query_meta.get("entry_timestamp", "") or (ref_dt.strftime("%Y-%m-%d %H:%M:%S") if ref_dt else "N/A"),
+        "exit_ts": query_meta.get("exit_timestamp", "") or (ref_dt.strftime("%Y-%m-%d %H:%M:%S") if ref_dt else "N/A"),
         "duration": q_dur,
         "img": query_img
     }
@@ -1057,7 +1296,8 @@ def track_cross_camera_trajectory(reid_model, query_img_path: str,
         matches=top_overall_matches,
         route_summary=route_str,
         save_path=save_path,
-        rejected_hop=rejected_hop
+        rejected_hop=rejected_hop,
+        time_filter_label=time_filter_label
     )
 
     # 12. Launch Pop-up Window
@@ -1251,7 +1491,15 @@ def main():
             output_dir=base_dir,
             no_popup=args.no_popup,
             custom_save_path=args.save_path,
-            top_n=args.top_n
+            top_n=args.top_n,
+            query_time=args.time,
+            time_range=args.time_range,
+            start_time=args.start_time,
+            end_time=args.end_time,
+            forward_only=args.forward_only,
+            max_gap_sec=args.max_gap,
+            tolerance_sec=args.tolerance,
+            all_times=args.all_times
         )
         return
 
@@ -1269,7 +1517,15 @@ def main():
             output_dir=base_dir,
             no_popup=args.no_popup,
             custom_save_path=args.save_path,
-            top_n=args.top_n
+            top_n=args.top_n,
+            query_time=args.time,
+            time_range=args.time_range,
+            start_time=args.start_time,
+            end_time=args.end_time,
+            forward_only=args.forward_only,
+            max_gap_sec=args.max_gap,
+            tolerance_sec=args.tolerance,
+            all_times=args.all_times
         )
         return
 
@@ -1303,7 +1559,15 @@ def main():
             output_dir=base_dir,
             no_popup=args.no_popup,
             custom_save_path=args.save_path,
-            top_n=args.top_n
+            top_n=args.top_n,
+            query_time=args.time,
+            time_range=args.time_range,
+            start_time=args.start_time,
+            end_time=args.end_time,
+            forward_only=args.forward_only,
+            max_gap_sec=args.max_gap,
+            tolerance_sec=args.tolerance,
+            all_times=args.all_times
         )
         return
 
