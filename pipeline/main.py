@@ -236,9 +236,11 @@ class MultiCameraANPRPipeline:
         self.plate_model = self._load_plate_model(self.args.plate_model)
         self.ocr_engine = self._load_ocr_engine()
         
-        # Load the Re-ID Embedding model (Factory pattern makes it easy to change later)
+        # Load the Re-ID Embedding model (Factory pattern allows dinov2, resnet50, resnet18)
         from pipeline.reid import get_reid_model
-        self.reid_model = get_reid_model("resnet18", self.device)
+        reid_choice = getattr(self.args, "reid_model", "dinov2")
+        hybrid_choice = getattr(self.args, "hybrid_color", True)
+        self.reid_model = get_reid_model(model_name=reid_choice, device=self.device, hybrid_color=hybrid_choice)
 
         # Filter for vehicle categories (COCO indices: 2: car, 3: motorcycle, 5: bus, 7: truck)
         self.vehicle_classes = [2, 3, 5, 7]
@@ -886,6 +888,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=True,
         help="Save vehicle crop and Re-ID embedding for all tracked vehicles meeting quality threshold (default: True)"
+    )
+    parser.add_argument(
+        "--reid_model",
+        type=str,
+        default="dinov2",
+        help="Vehicle Re-ID model architecture: 'dinov2' (SOTA Vision Transformer), 'resnet50', 'resnet18' (default: dinov2)"
+    )
+    parser.add_argument(
+        "--hybrid_color",
+        action="store_true",
+        default=True,
+        help="Enable color-aware hybrid feature fusion (deep structure + HSV color palette) (default: True)"
     )
     parser.add_argument(
         "--save_samples",

@@ -18,9 +18,13 @@ Usage:
     python trajectory.py --max_gap 600            # max seconds between sightings
 """
 
-import os, csv, argparse, itertools
+import os, sys, csv, argparse, itertools
 from collections import defaultdict
 from datetime import datetime
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 from ocr import TO_DIGIT, LETTER_SIM, correct_indian_plate
 
