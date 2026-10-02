@@ -7,7 +7,7 @@
 plate = TN13Q5113
 fuzzy_plates = TN1JQ5113
 vehicle_type = Sedan
-color = Unknown
+color = White
 query_images = Camera_4_track_195.jpg, Camera_5_track_2114.jpg, crops/vehicles/Camera_4_track_195.jpg, crops/vehicles/Camera_5_track_2114.jpg
 hop0 = camera:Camera_4, time:2026-08-31 15:58:21.200, track_id:195, offset_sec:21.20, crop:crops/vehicles/Camera_4_track_195.jpg
 hop1 = camera:Camera_5, time:2026-08-31 15:58:36.800, track_id:2114, offset_sec:36.80, crop:crops/vehicles/Camera_5_track_2114.jpg
@@ -15,17 +15,17 @@ hop1 = camera:Camera_5, time:2026-08-31 15:58:36.800, track_id:2114, offset_sec:
 [vehicle-2]
 plate = TN22BV3241
 fuzzy_plates = TN22ABV3211
-vehicle_type = Sedan
-color = Unknown
+vehicle_type = Motorcycle
+color = Red
 query_images = Camera_4_track_524.jpg, Camera_5_track_2424.jpg, crops/vehicles/Camera_4_track_524.jpg, crops/vehicles/Camera_5_track_2424.jpg
 hop0 = camera:Camera_4, time:2026-08-31 15:58:56.000, track_id:524, offset_sec:56.00, crop:crops/vehicles/Camera_4_track_524.jpg
 hop1 = camera:Camera_5, time:2026-08-31 15:59:12.160, track_id:2424, offset_sec:72.16, crop:crops/vehicles/Camera_5_track_2424.jpg
 
 [vehicle-3]
-plate = TN02BC5859
-fuzzy_plates = LD2BC5854
-vehicle_type = Sedan
-color = Unknown
+plate = TN02BC5854
+fuzzy_plates = TN02KC5859
+vehicle_type = Scooter
+color = Blue
 query_images = Camera_4_track_251.jpg, Camera_5_track_2224.jpg, crops/vehicles/Camera_4_track_251.jpg, crops/vehicles/Camera_5_track_2224.jpg
 hop0 = camera:Camera_4, time:2026-08-31 15:58:26.040, track_id:251, offset_sec:26.04, crop:crops/vehicles/Camera_4_track_251.jpg
 hop1 = camera:Camera_5, time:2026-08-31 15:58:51.800, track_id:2224, offset_sec:51.80, crop:crops/vehicles/Camera_5_track_2224.jpg
