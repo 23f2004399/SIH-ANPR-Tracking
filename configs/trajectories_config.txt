@@ -1,84 +1,31 @@
 # ==============================================================================
 # DEEPSTREAM-STYLE MULTI-CAMERA VEHICLE TRAJECTORY & RE-ID CONFIGURATION
-# ==============================================================================
-# Use this configuration file to define ground-truth vehicle trajectories,
-# query image aliases, and license plate routes across the camera network.
-#
-# Configuration Guide:
-#   [vehicle-<id>]
-#   plate         : Standard license plate string
-#   fuzzy_plates  : Comma-separated alternative OCR reads or common typos
-#   vehicle_type  : Sedan, SUV, Hatchback, Auto, Truck, Motorcycle
-#   color         : Body color (Silver, White, Dark Grey, Maroon, etc.)
-#   query_images  : Comma-separated image filenames or paths that trigger this trajectory
-#
-#   hop<N>        : camera:<CAM_ID>, time:<YYYY-MM-DD HH:MM:SS>, track_id:<ID>, offset_sec:<sec>, crop:<path>
-#                   (Hops are automatically ordered chronologically by timestamp)
+# (Auto-generated from CSV logs for Demo)
 # ==============================================================================
 
 [vehicle-1]
 plate = TN13Q5113
-fuzzy_plates = TN1JQ5113, TN1305113, TN13Q5118, 13Q5113
+fuzzy_plates = TN1JQ5113
 vehicle_type = Sedan
-color = Silver
-query_images = Camera_4_track_190.jpg, Camera_5_track_2114.jpg, outputs_test/crops/vehicles/Camera_4_track_190.jpg, outputs_test/crops/vehicles/Camera_5_track_2114.jpg, sample_01.jpg, outputs_test/sample_crops/Camera_4_track_190/sample_01.jpg
-hop0 = camera:Camera_4, time:2026-08-31 15:58:20.200, track_id:190, offset_sec:20.2, crop:outputs_test/crops/vehicles/Camera_4_track_190.jpg
-hop1 = camera:Camera_5, time:2026-08-31 15:58:32.600, track_id:2114, offset_sec:32.6, crop:outputs_test/crops/vehicles/Camera_5_track_2114.jpg
+color = Unknown
+query_images = Camera_4_track_195.jpg, Camera_5_track_2114.jpg, crops/vehicles/Camera_4_track_195.jpg, crops/vehicles/Camera_5_track_2114.jpg
+hop0 = camera:Camera_4, time:2026-08-31 15:58:21.200, track_id:195, offset_sec:21.20, crop:crops/vehicles/Camera_4_track_195.jpg
+hop1 = camera:Camera_5, time:2026-08-31 15:58:36.800, track_id:2114, offset_sec:36.80, crop:crops/vehicles/Camera_5_track_2114.jpg
 
 [vehicle-2]
 plate = TN22BV3241
-fuzzy_plates = TN22ABV3211, TN22BV3211, TN228V3241, 22BV3241
-vehicle_type = SUV
-color = White
-query_images = Camera_4_track_524.jpg, Camera_5_track_2424.jpg, outputs_test/crops/vehicles/Camera_4_track_524.jpg, outputs_test/crops/vehicles/Camera_5_track_2424.jpg, outputs_test/sample_crops/Camera_4_track_524/sample_01.jpg
-hop0 = camera:Camera_4, time:2026-08-31 15:58:53.120, track_id:524, offset_sec:53.1, crop:outputs_test/crops/vehicles/Camera_4_track_524.jpg
-hop1 = camera:Camera_5, time:2026-08-31 15:59:12.160, track_id:2424, offset_sec:72.1, crop:outputs_test/crops/vehicles/Camera_5_track_2424.jpg
+fuzzy_plates = TN22ABV3211
+vehicle_type = Sedan
+color = Unknown
+query_images = Camera_4_track_524.jpg, Camera_5_track_2424.jpg, crops/vehicles/Camera_4_track_524.jpg, crops/vehicles/Camera_5_track_2424.jpg
+hop0 = camera:Camera_4, time:2026-08-31 15:58:56.000, track_id:524, offset_sec:56.00, crop:crops/vehicles/Camera_4_track_524.jpg
+hop1 = camera:Camera_5, time:2026-08-31 15:59:12.160, track_id:2424, offset_sec:72.16, crop:crops/vehicles/Camera_5_track_2424.jpg
 
 [vehicle-3]
-# Pure Visual Re-ID (Vehicle with unreadable / obscured plate)
-plate = UNKNOWN_3631
-fuzzy_plates = UNKNOWN, NO_PLATE, UNREADABLE
-vehicle_type = Dark Car
-color = Dark Grey
-query_images = Camera_6_track_3631.jpg, Camera_4_track_767.jpg, outputs_test/crops/vehicles/Camera_6_track_3631.jpg, outputs_test/crops/vehicles/Camera_4_track_767.jpg, outputs_test/sample_crops/Camera_4_track_767/sample_01.jpg
-hop0 = camera:Camera_6, time:2026-08-31 15:59:07.320, track_id:3631, offset_sec:67.3, crop:outputs_test/crops/vehicles/Camera_6_track_3631.jpg
-hop1 = camera:Camera_4, time:2026-08-31 15:59:13.040, track_id:767, offset_sec:73.0, crop:outputs_test/crops/vehicles/Camera_4_track_767.jpg
-
-[vehicle-4]
-plate = TN07OK5059
-fuzzy_plates = AR07OA5059, LA07OK5059, TN070K5059, 07OK5059
-vehicle_type = Hatchback
-color = Maroon
-query_images = Camera_4_track_254.jpg, Camera_5_track_2150.jpg, outputs_test/crops/vehicles/Camera_4_track_254.jpg, outputs_test/crops/vehicles/Camera_5_track_2150.jpg, outputs_test/sample_crops/Camera_4_track_254/sample_01.jpg
-hop0 = camera:Camera_4, time:2026-08-31 15:58:26.240, track_id:254, offset_sec:26.2, crop:outputs_test/crops/vehicles/Camera_4_track_254.jpg
-hop1 = camera:Camera_5, time:2026-08-31 15:58:38.600, track_id:2150, offset_sec:38.6, crop:outputs_test/crops/vehicles/Camera_5_track_2150.jpg
-
-[vehicle-5]
-plate = TN05BLA9721
-fuzzy_plates = TN0SBL1972, TN05BL1972, TNOSBLA9721, 05BLA9721
-vehicle_type = Sedan
-color = Grey
-query_images = Camera_4_track_1270.jpg, Camera_5_track_2962.jpg, outputs_test/crops/vehicles/Camera_4_track_1270.jpg, outputs_test/crops/vehicles/Camera_5_track_2962.jpg, outputs_test/sample_crops/Camera_4_track_1270/sample_01.jpg
-hop0 = camera:Camera_4, time:2026-08-31 16:00:18.920, track_id:1270, offset_sec:18.9, crop:outputs_test/crops/vehicles/Camera_4_track_1270.jpg
-hop1 = camera:Camera_5, time:2026-08-31 16:00:29.520, track_id:2962, offset_sec:29.5, crop:outputs_test/crops/vehicles/Camera_5_track_2962.jpg
-
-[vehicle-6]
-# Full 3-Camera Network Trajectory (Camera 6 -> Camera 4 -> Camera 5)
 plate = TN02BC5859
-fuzzy_plates = LD2BC5854, TN028C5859, 02BC5859, TN02BC5854
-vehicle_type = Car
-color = White
-query_images = Camera_4_track_251.jpg, Camera_5_track_2224.jpg, Camera_6_track_3205.jpg, outputs_test/crops/vehicles/Camera_4_track_251.jpg, outputs_test/crops/vehicles/Camera_5_track_2224.jpg, outputs_test/crops/vehicles/Camera_6_track_3205.jpg
-hop0 = camera:Camera_6, time:2026-08-31 15:58:12.400, track_id:3205, offset_sec:12.4, crop:outputs_test/crops/vehicles/Camera_6_track_3205.jpg
-hop1 = camera:Camera_4, time:2026-08-31 15:58:26.040, track_id:251, offset_sec:26.0, crop:outputs_test/crops/vehicles/Camera_4_track_251.jpg
-hop2 = camera:Camera_5, time:2026-08-31 15:58:46.280, track_id:2224, offset_sec:46.2, crop:outputs_test/crops/vehicles/Camera_5_track_2224.jpg
-
-[vehicle-7]
-# Reverse Direction Outgoing Sighting (Camera 5 -> Camera 4)
-plate = TN07CK3966
-fuzzy_plates = TN07CA3988, TN07CK3988, 07CK3966
-vehicle_type = Vehicle
-color = Blue
-query_images = Camera_5_track_2117.jpg, Camera_4_track_891.jpg, outputs_test/crops/vehicles/Camera_5_track_2117.jpg, outputs_test/crops/vehicles/Camera_4_track_891.jpg
-hop0 = camera:Camera_5, time:2026-08-31 15:58:34.040, track_id:2117, offset_sec:34.0, crop:outputs_test/crops/vehicles/Camera_5_track_2117.jpg
-hop1 = camera:Camera_4, time:2026-08-31 15:59:29.800, track_id:891, offset_sec:89.8, crop:outputs_test/crops/vehicles/Camera_4_track_891.jpg
+fuzzy_plates = LD2BC5854
+vehicle_type = Sedan
+color = Unknown
+query_images = Camera_4_track_251.jpg, Camera_5_track_2224.jpg, crops/vehicles/Camera_4_track_251.jpg, crops/vehicles/Camera_5_track_2224.jpg
+hop0 = camera:Camera_4, time:2026-08-31 15:58:26.040, track_id:251, offset_sec:26.04, crop:crops/vehicles/Camera_4_track_251.jpg
+hop1 = camera:Camera_5, time:2026-08-31 15:58:51.800, track_id:2224, offset_sec:51.80, crop:crops/vehicles/Camera_5_track_2224.jpg
