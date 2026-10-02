@@ -1,12 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Header } from '@/components/layout/Header';
-import { SubNav } from '@/components/layout/SubNav';
 
 export const metadata: Metadata = {
-  title: 'ZyroTrace AI — Sovereign Multi-Camera ANPR Telemetry & Traffic Intelligence',
-  description:
-    'Defense-grade multi-camera ANPR tracking and urban traffic intelligence platform developed for Smart India Hackathon (BEL & MoRTH).',
+  title: 'ZyroTrace AI · Surveillance & City Traffic Analytics',
+  description: 'AI-Powered Vehicle Tracking, ANPR Re-ID, and Urban Congestion Intelligence',
 };
 
 export default function RootLayout({
@@ -15,25 +12,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-porcelain text-slate-700 flex flex-col font-sans">
-        <Header />
-        <SubNav />
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-5">
-          {children}
-        </main>
+      <body className="min-h-screen bg-[#F4F5F7] text-[#0F172A] antialiased" suppressHydrationWarning>
+        {children}
       </body>
     </html>
   );
