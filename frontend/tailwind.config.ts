@@ -1,57 +1,45 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
-      colors: {
-        porcelain: '#FBFBFA',
-        surface: '#FFFFFF',
-        tint: '#F4F4F0',
-        'border-warm': '#E5E2DC',
-        'border-subtle': '#EEECE6',
-        navy: {
-          800: '#112240',
-          900: '#0F1E36',
-          950: '#0A192F',
-        },
-        slate: {
-          400: '#94A3B8',
-          500: '#64748B',
-          700: '#334155',
-        },
-        saffron: {
-          50: '#FFFBEB',
-          600: '#D97706',
-          700: '#EA580C',
-        },
-        emerald: {
-          50: '#ECFDF5',
-          600: '#059669',
-          700: '#047857',
-        },
-        crimson: {
-          50: '#FEF2F2',
-          700: '#B91C1C',
-        },
-        cobalt: {
-          50: '#EFF6FF',
-          600: '#1D4ED8',
-        },
-      },
       fontFamily: {
-        heading: ['var(--font-rajdhani)', 'Rajdhani', 'sans-serif'],
-        sans: ['var(--font-jakarta)', 'Plus Jakarta Sans', 'sans-serif'],
-        mono: ['var(--font-jetbrains)', 'JetBrains Mono', 'monospace'],
+        sans: ["var(--font-instrument-sans)", "Instrument Sans", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "JetBrains Mono", "monospace"],
       },
-      boxShadow: {
-        'gov-sm': '0 1px 2px rgba(10, 25, 47, 0.05)',
-        'gov-md': '0 4px 6px -1px rgba(10, 25, 47, 0.08), 0 2px 4px -2px rgba(10, 25, 47, 0.04)',
-        'gov-lg': '0 10px 15px -3px rgba(10, 25, 47, 0.1), 0 4px 6px -4px rgba(10, 25, 47, 0.05)',
+      colors: {
+        brand: {
+          cyan: "#0891B2",
+          darkCyan: "#0E7490",
+          navy: "#0F172A",
+          slate: "#334155",
+          muted: "#64748B",
+          subtle: "#94A3B8",
+          border: "#E2E4E8",
+          subtleBorder: "#EEF1F4",
+          surface: "#FFFFFF",
+          bg: "#F4F5F7",
+          lightTrack: "#F1F4F7",
+        },
+      },
+      keyframes: {
+        zbreathe: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.35" },
+        },
+        zsweep: {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+      },
+      animation: {
+        zbreathe: "zbreathe 2s ease-in-out infinite",
+        zsweep: "zsweep 4s linear infinite",
       },
     },
   },
