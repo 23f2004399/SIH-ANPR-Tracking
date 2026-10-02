@@ -13,8 +13,8 @@ hop0 = camera:Camera_4, time:2026-08-31 15:58:21.200, track_id:195, offset_sec:2
 hop1 = camera:Camera_5, time:2026-08-31 15:58:36.800, track_id:2114, offset_sec:36.80, crop:crops/vehicles/Camera_5_track_2114.jpg
 
 [vehicle-2]
-plate = TN22BV3241
-fuzzy_plates = TN22ABV3211
+plate = TN22BV3211
+fuzzy_plates = TN22ABV3241
 vehicle_type = Motorcycle
 color = Red
 query_images = Camera_4_track_524.jpg, Camera_5_track_2424.jpg, crops/vehicles/Camera_4_track_524.jpg, crops/vehicles/Camera_5_track_2424.jpg

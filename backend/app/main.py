@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.v1 import cameras, health, jobs, traffic, vehicles
 from backend.app.core import db
@@ -30,6 +33,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ZyroTrace AI Backend", lifespan=lifespan)
+
+# Allow CORS so the frontend can make requests to this backend without cross-origin errors
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (change in production)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -40,3 +52,8 @@ app.include_router(cameras.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(traffic.router, prefix="/api/v1")
 app.include_router(vehicles.router, prefix="/api/v1/vehicles")
+
+# Mount crops directory to serve images to the frontend
+crops_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "crops")
+if os.path.exists(crops_dir):
+    app.mount("/crops", StaticFiles(directory=crops_dir), name="crops")

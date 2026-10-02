@@ -9,6 +9,7 @@ output2/
 input2/
 outputs/
 models/
+crops/
 # C extensions
 *.s
 *.pt
