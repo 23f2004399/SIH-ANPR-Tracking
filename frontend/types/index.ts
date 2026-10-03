@@ -20,9 +20,15 @@ export interface TrafficMetrics {
 export interface TrafficAggregate {
   id?: string;
   camera_id?: string;
+  segment_id?: string;
   road_segment_id?: string;
   window_start?: string;
   window_end?: string;
+  vehicle_count?: number;
+  density_metric?: number;
+  average_speed?: number | null;
+  congestion_level?: string;
+  computed_at?: string;
   metrics?: TrafficMetrics;
   name?: string;
   cameras?: Array<{
@@ -31,6 +37,7 @@ export interface TrafficAggregate {
     latitude: number;
     longitude: number;
   }>;
+  [key: string]: any;
 }
 
 export interface VehicleTrack {
@@ -46,25 +53,37 @@ export interface VehicleTrack {
 
 export interface VehicleObservation {
   id?: number;
-  track_id: number;
+  observation_id?: number;
+  track_id?: number;
   camera_id: string;
   observed_at: string;
+  raw_text?: string;
   normalized_text?: string;
+  ocr_confidence?: number;
+  detector_confidence?: number;
+  plate_crop_key?: string;
   confidence?: number;
   camera_name?: string;
   latitude?: number;
   longitude?: number;
   speed?: string;
+  [key: string]: any;
 }
 
 export interface EvidenceAsset {
   id: number;
+  job_id?: number;
+  camera_id?: string;
   track_id: number;
+  observation_id?: number;
   timestamp: string;
   asset_type?: string;
+  storage_key?: string;
   url?: string;
   crop_url?: string;
+  quality_score?: number;
   confidence?: number;
+  [key: string]: any;
 }
 
 export interface SimilarVehicle {
