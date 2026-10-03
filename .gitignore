@@ -19,7 +19,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -221,7 +221,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-
 # Contains Supabase secret key — never commit
 api_call.js
 
