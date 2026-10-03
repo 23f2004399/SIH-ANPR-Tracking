@@ -5,7 +5,6 @@ import {
   VehicleObservation,
   EvidenceAsset,
   SimilarVehicle,
-  CityTrafficAnalytics,
 } from '@/types';
 
 // In Next.js client, requests to /api/v1/... are proxied through rewrites in next.config.mjs to FastAPI
@@ -53,11 +52,6 @@ export async function getTrafficSegments(windowMinutes: number = 60): Promise<Tr
   return fetchJson<TrafficAggregate[]>(`/api/v1/traffic/segments?window_minutes=${windowMinutes}`);
 }
 
-export async function getCityTrafficAnalytics(city?: string): Promise<CityTrafficAnalytics> {
-  const query = city ? `?city=${encodeURIComponent(city)}` : '';
-  return fetchJson<CityTrafficAnalytics>(`/api/v1/traffic/analytics${query}`);
-}
-
 export async function getTrafficHistory(params?: {
   cameraId?: string;
   segmentId?: string;
@@ -100,16 +94,4 @@ export async function getSimilarVehicles(
   limit: number = 10
 ): Promise<SimilarVehicle[]> {
   return fetchJson<SimilarVehicle[]>(`/api/v1/vehicles/${trackId}/similar?limit=${limit}`);
-}
-
-export async function getVehicleStatsOverview(): Promise<{
-  total_tracks: number;
-  total_plates: number;
-  vehicle_types: Record<string, number>;
-}> {
-  return fetchJson<{
-    total_tracks: number;
-    total_plates: number;
-    vehicle_types: Record<string, number>;
-  }>('/api/v1/vehicles/stats/overview');
 }

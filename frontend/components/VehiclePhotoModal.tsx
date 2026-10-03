@@ -109,7 +109,7 @@ export default function VehiclePhotoModal({ sighting, onClose }: VehiclePhotoMod
             >
               {sighting.best_crop_key ? (
                 <img
-                  src={`/${sighting.best_crop_key}`}
+                  src={sighting.best_crop_key.startsWith('http') || sighting.best_crop_key.startsWith('/') ? sighting.best_crop_key : `/${sighting.best_crop_key}`}
                   alt={sighting.plateTag}
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onError={(e) => {
@@ -165,7 +165,7 @@ export default function VehiclePhotoModal({ sighting, onClose }: VehiclePhotoMod
                 }}
               >
                 <img
-                  src={`/${sighting.plate_crop_key}`}
+                  src={sighting.plate_crop_key.startsWith('http') || sighting.plate_crop_key.startsWith('/') ? sighting.plate_crop_key : `/${sighting.plate_crop_key}`}
                   alt="Plate Crop"
                   style={{ maxHeight: '90px', objectFit: 'contain' }}
                   onError={(e) => {

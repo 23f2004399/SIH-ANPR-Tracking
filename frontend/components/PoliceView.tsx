@@ -8,8 +8,11 @@ import {
   RoutePoint,
   SightingItem,
   Camera,
+  VehicleTrack,
+  VehicleObservation,
+  EvidenceAsset,
 } from '@/types';
-import { searchPlates, getVehicleHistory, listCameras } from '@/lib/api';
+import { searchPlates, getVehicleHistory, getVehicleEvidence, listCameras } from '@/lib/api';
 import dynamic from 'next/dynamic';
 import VehiclePhotoModal from './VehiclePhotoModal';
 
@@ -221,13 +224,139 @@ export default function PoliceView({
       });
   }, []);
 
+  const enrichAndMapTracks = async (tracks: VehicleTrack[], queryPlate: string) => {
+    // Fetch vehicle history and evidence concurrently for each track
+    const enriched = await Promise.all(
+      tracks.map(async (track) => {
+        const [history, evidence] = await Promise.all([
+          getVehicleHistory(track.id).catch((err) => {
+            console.warn(`Error fetching history for track ${track.id}:`, err);
+            return [] as VehicleObservation[];
+          }),
+          getVehicleEvidence(track.id).catch((err) => {
+            console.warn(`Error fetching evidence for track ${track.id}:`, err);
+            return [] as EvidenceAsset[];
+          }),
+        ]);
+        return { track, history: history || [], evidence: evidence || [] };
+      })
+    );
+
+    const sightings: SightingItem[] = enriched.map((item) => {
+      const bestObs = item.history.length > 0
+        ? [...item.history].sort((a: any, b: any) => Number(b.ocr_confidence ?? 0) - Number(a.ocr_confidence ?? 0))[0]
+        : null;
+
+      const vehicleAsset = item.evidence.find((a: any) => a.asset_type === 'VEHICLE_BEST');
+      const plateAsset = item.evidence.find((a: any) => a.asset_type === 'PLATE_BEST');
+
+      const bestCropKey = vehicleAsset?.storage_key || item.track.best_crop_key;
+      const plateCropKey = plateAsset?.storage_key || bestObs?.plate_crop_key || item.track.plate_crop_key;
+
+      const camId = item.track.camera_id || bestObs?.camera_id || 'Camera_1';
+      const camObj = cameras.find((c) => c.id === camId || c.name === camId);
+      const street = camObj?.name || (camId === 'Camera_1' ? 'OMR Junction North' : camId === 'Camera_2' ? 'OMR Mid Corridor' : `${camId} Node`);
+      const lat = camObj ? camObj.latitude : (camId === 'Camera_1' ? 12.9854 : 12.9843);
+      const lng = camObj ? camObj.longitude : (camId === 'Camera_1' ? 80.2406 : 80.2402);
+      const geoStr = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+      const firstSeen = bestObs?.observed_at || item.track.first_seen_at;
+      const d = firstSeen ? new Date(firstSeen) : new Date();
+      const timeStr = !isNaN(d.getTime())
+        ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+        : '15:58:00';
+
+      const ocrConf = bestObs?.ocr_confidence ?? item.track.ocr_confidence;
+      const confNum = ocrConf !== undefined && ocrConf !== null ? Number(ocrConf) : null;
+      const confVal = confNum !== null
+        ? (confNum > 1 ? confNum : confNum * 100).toFixed(1)
+        : '28.1';
+
+      const plateNumber = bestObs?.normalized_text || bestObs?.raw_text || item.track.license_plate || queryPlate;
+
+      return {
+        id: item.track.id,
+        track_id: item.track.id,
+        cam: camId,
+        street,
+        geo: geoStr,
+        time: timeStr,
+        conf: `OCR ${confVal}%`,
+        reid: false,
+        plateTag: plateNumber,
+        vehicle_type: item.track.vehicle_type || 'car',
+        best_crop_key: bestCropKey,
+        plate_crop_key: plateCropKey,
+      };
+    });
+
+    const sortedTracks = [...enriched].sort((a, b) => {
+      const tA = new Date(a.track.first_seen_at).getTime() || 0;
+      const tB = new Date(b.track.first_seen_at).getTime() || 0;
+      return tA - tB;
+    });
+
+    const route: RoutePoint[] = sortedTracks.map((item, idx) => {
+      const camId = item.track.camera_id || 'Camera_1';
+      const camObj = cameras.find((c) => c.id === camId || c.name === camId);
+      const street = camObj?.name || (camId === 'Camera_1' ? 'OMR Junction North' : camId === 'Camera_2' ? 'OMR Mid Corridor' : `${camId} Node`);
+      const lat = camObj ? camObj.latitude : (camId === 'Camera_1' ? 12.9854 : 12.9843);
+      const lng = camObj ? camObj.longitude : (camId === 'Camera_1' ? 80.2406 : 80.2402);
+      const d = item.track.first_seen_at ? new Date(item.track.first_seen_at) : new Date();
+      const timeStr = !isNaN(d.getTime())
+        ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+        : (idx === 0 ? '15:58' : '16:04');
+
+      const bestObs = item.history.length > 0
+        ? [...item.history].sort((a: any, b: any) => Number(b.ocr_confidence ?? 0) - Number(a.ocr_confidence ?? 0))[0]
+        : null;
+      const confNum = bestObs?.ocr_confidence ?? item.track.ocr_confidence;
+      const confVal = confNum !== undefined && confNum !== null
+        ? (Number(confNum) > 1 ? Number(confNum) : Number(confNum) * 100).toFixed(1)
+        : '28.1';
+
+      return {
+        n: idx + 1,
+        cam: camId,
+        street,
+        time: timeStr,
+        speed: idx === 0 ? '45 km/h' : '42 km/h',
+        conf: `${confVal}%`,
+        geo: `${lat.toFixed(3)}, ${lng.toFixed(3)}`,
+        x: idx === 0 ? 32 : (idx === 1 ? 68 : Math.min(85, 30 + idx * 25)),
+        y: idx === 0 ? 64 : (idx === 1 ? 38 : Math.max(15, 60 - idx * 20)),
+      };
+    });
+
+    const uniqueCams = new Set(enriched.map((e) => e.track.camera_id)).size;
+
+    let dateRange = '31 Aug 2026 · 15:58–16:04 IST';
+    if (sortedTracks[0]?.track?.first_seen_at) {
+      const dStart = new Date(sortedTracks[0].track.first_seen_at);
+      const lastTrack = sortedTracks[sortedTracks.length - 1].track;
+      const tEnd = lastTrack.last_seen_at || lastTrack.first_seen_at;
+      const dEnd = tEnd ? new Date(tEnd) : dStart;
+      const startHM = !isNaN(dStart.getTime()) ? dStart.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '15:58';
+      const endHM = !isNaN(dEnd.getTime()) ? dEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '16:04';
+      const dateStr = !isNaN(dStart.getTime())
+        ? dStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '31 Aug 2026';
+      dateRange = `${dateStr} · ${startHM}–${endHM} IST`;
+    }
+
+    return { sightings, route, uniqueCams, dateRange };
+  };
+
   const mapRowsToSightings = (rows: any[], q: string) => {
     const sightings: SightingItem[] = rows.map((r) => {
       const timeStr = r.first_seen_at
         ? new Date(r.first_seen_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
         : '15:58:00';
+      const camObj = cameras.find((c) => c.id === r.camera_id || c.name === r.camera_id);
       const geoStr = r.camera_lat
         ? `${Number(r.camera_lat).toFixed(4)}, ${Number(r.camera_lng).toFixed(4)}`
+        : camObj
+        ? `${camObj.latitude.toFixed(4)}, ${camObj.longitude.toFixed(4)}`
         : (r.camera_id === 'Camera_1' ? '12.9854, 80.2406' : '12.9843, 80.2402');
       const confVal = r.ocr_confidence
         ? (Number(r.ocr_confidence) > 1 ? Number(r.ocr_confidence) : Number(r.ocr_confidence) * 100).toFixed(1)
@@ -237,7 +366,7 @@ export default function PoliceView({
         id: r.id || r.track_id,
         track_id: r.track_id,
         cam: r.camera_id || 'Camera_1',
-        street: r.camera_name || (r.camera_id === 'Camera_1' ? 'OMR Junction North' : 'OMR Mid Corridor'),
+        street: r.camera_name || camObj?.name || (r.camera_id === 'Camera_1' ? 'OMR Junction North' : 'OMR Mid Corridor'),
         geo: geoStr,
         time: timeStr,
         conf: `OCR ${confVal}%`,
@@ -256,11 +385,16 @@ export default function PoliceView({
       const confVal = r.ocr_confidence
         ? (Number(r.ocr_confidence) > 1 ? Number(r.ocr_confidence) : Number(r.ocr_confidence) * 100).toFixed(1)
         : '28.1';
-      const geoStr = r.camera_lat ? `${Number(r.camera_lat).toFixed(3)}, ${Number(r.camera_lng).toFixed(3)}` : '12.985, 80.240';
+      const camObj = cameras.find((c) => c.id === r.camera_id || c.name === r.camera_id);
+      const geoStr = r.camera_lat
+        ? `${Number(r.camera_lat).toFixed(3)}, ${Number(r.camera_lng).toFixed(3)}`
+        : camObj
+        ? `${camObj.latitude.toFixed(3)}, ${camObj.longitude.toFixed(3)}`
+        : '12.985, 80.240';
       return {
         n: idx + 1,
         cam: r.camera_id || `Camera_${idx + 1}`,
-        street: r.camera_name || (r.camera_id === 'Camera_1' ? 'OMR Junction North' : 'OMR Mid Corridor'),
+        street: r.camera_name || camObj?.name || (r.camera_id === 'Camera_1' ? 'OMR Junction North' : 'OMR Mid Corridor'),
         time: timeStr,
         speed: r.speed || (idx === 0 ? '45 km/h' : '42 km/h'),
         conf: `${confVal}%`,
@@ -289,7 +423,7 @@ export default function PoliceView({
     try {
       const results = await searchPlates(normQ, false, 20);
       if (results && results.length > 0) {
-        const { sightings, route, uniqueCams, dateRange } = mapRowsToSightings(results, normQ);
+        const { sightings, route, uniqueCams, dateRange } = await enrichAndMapTracks(results, normQ);
         setActiveSightings(sightings);
         setActiveRoute(route);
         setActiveCameraCount(uniqueCams);
@@ -301,7 +435,7 @@ export default function PoliceView({
       console.warn('Backend search exception:', err);
     }
 
-    // Check if we have known DB records for this plate
+    // Fallback: Check if we have known DB records for this plate
     if (KNOWN_DB_TRACKS[normQ]) {
       const rows = KNOWN_DB_TRACKS[normQ];
       const { sightings, route, uniqueCams, dateRange } = mapRowsToSightings(rows, normQ);
@@ -394,7 +528,7 @@ export default function PoliceView({
     try {
       const results = await searchPlates(currentPlate, false, 10);
       if (results && results.length > 0) {
-        const { sightings, route, uniqueCams, dateRange } = mapRowsToSightings(results, currentPlate);
+        const { sightings, route, uniqueCams, dateRange } = await enrichAndMapTracks(results, currentPlate);
         setActiveSightings(sightings);
         setActiveRoute(route);
         setActiveCameraCount(uniqueCams);
@@ -802,7 +936,7 @@ export default function PoliceView({
                         {/* Real vehicle picture from best_crop_key */}
                         {s.best_crop_key && (
                           <img
-                            src={`/${s.best_crop_key}`}
+                            src={s.best_crop_key.startsWith('http') || s.best_crop_key.startsWith('/') ? s.best_crop_key : `/${s.best_crop_key}`}
                             alt={s.plateTag}
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 2 }}
                             onError={(e) => {
@@ -819,7 +953,7 @@ export default function PoliceView({
                         {s.plate_crop_key && (
                           <div style={{ position: 'absolute', right: '8px', top: '8px', zIndex: 10, background: '#FFFFFF', border: '1px solid #0F172A', borderRadius: '2px', padding: '1px 3px', display: 'flex', alignItems: 'center', height: '18px', overflow: 'hidden' }}>
                             <img
-                              src={`/${s.plate_crop_key}`}
+                              src={s.plate_crop_key.startsWith('http') || s.plate_crop_key.startsWith('/') ? s.plate_crop_key : `/${s.plate_crop_key}`}
                               alt="Plate Crop"
                               style={{ maxHeight: '16px', objectFit: 'contain' }}
                               onError={(e) => {
