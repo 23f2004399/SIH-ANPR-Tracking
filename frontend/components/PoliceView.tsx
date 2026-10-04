@@ -208,7 +208,28 @@ export default function PoliceView({
   const [activeDateRange, setActiveDateRange] = useState<string>('');
   const [selectedPhotoSighting, setSelectedPhotoSighting] = useState<SightingItem | null>(null);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('Camera_1');
+  const [liveClock, setLiveClock] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const liveVideoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Live ticking clock for CCTV surveillance HUD
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const y = now.getFullYear();
+      const m = pad(now.getMonth() + 1);
+      const d = pad(now.getDate());
+      const hh = pad(now.getHours());
+      const mm = pad(now.getMinutes());
+      const ss = pad(now.getSeconds());
+      setLiveClock(`${y}-${m}-${d} ${hh}:${mm}:${ss} IST`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync plate input with prop
   useEffect(() => {
@@ -890,25 +911,120 @@ export default function PoliceView({
                 </span>
               </div>
               <div style={{ padding: '16px' }}>
-                <div style={{ position: 'relative', border: '1px solid #E2E4E8', borderRadius: '5px', overflow: 'hidden', aspectRatio: '16/9', minHeight: '300px', background: '#0F172A' }}>
+                <div style={{ position: 'relative', border: '1px solid #0F172A', borderRadius: '5px', overflow: 'hidden', aspectRatio: '16/9', minHeight: '320px', background: '#090D16' }}>
                   <video
+                    ref={liveVideoRef}
                     key={currentSelectedCam.id}
                     src={currentSelectedCam.stream_url || `/api/v1/cameras/${currentSelectedCam.id}/stream`}
-                    controls
                     autoPlay
                     loop
                     muted
                     playsInline
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#0F172A', display: 'block' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#090D16', display: 'block' }}
                   >
                     Your browser does not support the video tag.
                   </video>
-                  {/* Live HUD metadata */}
-                  <div style={{ position: 'absolute', left: '12px', top: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#FFFFFF', background: 'rgba(15,23,42,0.78)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '5px 8px', pointerEvents: 'none' }}>
-                    {currentSelectedCam.id} · {Number(currentSelectedCam.latitude).toFixed(4)}, {Number(currentSelectedCam.longitude).toFixed(4)}
+
+                  {/* CCTV Corner Reticles */}
+                  <div style={{ position: 'absolute', top: '12px', left: '12px', width: '14px', height: '14px', borderTop: '2px solid rgba(255,255,255,0.45)', borderLeft: '2px solid rgba(255,255,255,0.45)', pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', top: '12px', right: '12px', width: '14px', height: '14px', borderTop: '2px solid rgba(255,255,255,0.45)', borderRight: '2px solid rgba(255,255,255,0.45)', pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', bottom: '12px', left: '12px', width: '14px', height: '14px', borderBottom: '2px solid rgba(255,255,255,0.45)', borderLeft: '2px solid rgba(255,255,255,0.45)', pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '14px', height: '14px', borderBottom: '2px solid rgba(255,255,255,0.45)', borderRight: '2px solid rgba(255,255,255,0.45)', pointerEvents: 'none' }} />
+
+                  {/* Top-Left: Camera Ident & GPS Coordinates */}
+                  <div style={{ position: 'absolute', left: '18px', top: '18px', display: 'flex', flexDirection: 'column', gap: '3px', pointerEvents: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', fontWeight: 600, color: '#38BDF8', letterSpacing: '.04em', background: 'rgba(15,23,42,0.88)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: '3px', padding: '3px 7px' }}>
+                        {currentSelectedCam.id.toUpperCase()}
+                      </span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10.5px', color: '#F8FAFC', background: 'rgba(15,23,42,0.78)', borderRadius: '3px', padding: '3px 7px' }}>
+                        {currentSelectedCam.name.toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#94A3B8', paddingLeft: '2px', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                      LAT {Number(currentSelectedCam.latitude).toFixed(4)}° N · LNG {Number(currentSelectedCam.longitude).toFixed(4)}° E
+                    </div>
                   </div>
-                  <div style={{ position: 'absolute', right: '12px', bottom: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#CBD5E1', background: 'rgba(15,23,42,0.78)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '5px 8px', pointerEvents: 'none' }}>
-                    LIVE FEED · ANNOTATED
+
+                  {/* Top-Right: Pulsing Live Indicator & Ticking Clock */}
+                  <div style={{ position: 'absolute', right: '18px', top: '18px', display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', fontWeight: 600, letterSpacing: '.08em', color: '#EF4444', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '3px', padding: '3px 8px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#DC2626', animation: 'zbreathe 1.2s ease-in-out infinite' }} />
+                      LIVE FEED
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10.5px', color: '#F1F5F9', background: 'rgba(15,23,42,0.88)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '3px', padding: '3px 8px' }}>
+                      {liveClock || '2026-08-31 15:58:24 IST'}
+                    </span>
+                  </div>
+
+                  {/* Bottom-Left: Technical CCTV Telemetry */}
+                  <div style={{ position: 'absolute', left: '18px', bottom: '18px', fontFamily: "'JetBrains Mono', monospace", fontSize: '9.5px', color: '#94A3B8', background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '3px', padding: '4px 8px', pointerEvents: 'none', display: 'flex', gap: '10px' }}>
+                    <span style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />
+                      SIGNAL OK
+                    </span>
+                    <span>1080P · 25 FPS</span>
+                    <span>ANPR STREAM ACTIVE</span>
+                  </div>
+
+                  {/* Bottom-Right: Surveillance Monitor Controls (No Seekbar) */}
+                  <div style={{ position: 'absolute', right: '18px', bottom: '18px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const v = liveVideoRef.current;
+                        if (v) {
+                          if (v.paused) {
+                            v.play();
+                            setIsPlaying(true);
+                          } else {
+                            v.pause();
+                            setIsPlaying(false);
+                          }
+                        }
+                      }}
+                      title={isPlaying ? 'Pause Feed' : 'Resume Feed'}
+                      style={{
+                        background: 'rgba(15,23,42,0.88)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#F1F5F9',
+                        borderRadius: '3px',
+                        padding: '4px 8px',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '9.5px',
+                        cursor: 'pointer',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {isPlaying ? 'PAUSE' : 'RESUME'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const elem = liveVideoRef.current;
+                        if (elem) {
+                          if (document.fullscreenElement) {
+                            document.exitFullscreen().catch(() => {});
+                          } else {
+                            elem.requestFullscreen().catch(() => {});
+                          }
+                        }
+                      }}
+                      title="Fullscreen Monitor"
+                      style={{
+                        background: 'rgba(15,23,42,0.88)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#F1F5F9',
+                        borderRadius: '3px',
+                        padding: '4px 8px',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '9.5px',
+                        cursor: 'pointer',
+                        lineHeight: 1,
+                      }}
+                    >
+                      EXPAND ⛶
+                    </button>
                   </div>
                 </div>
               </div>
