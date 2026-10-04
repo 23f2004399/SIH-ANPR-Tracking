@@ -236,6 +236,24 @@ export default function PoliceView({
     setPlateInput(currentPlate);
   }, [currentPlate]);
 
+  const handleClearAll = () => {
+    setActiveSightings([]);
+    setActiveRoute([]);
+    setActiveCameraCount(0);
+    setActiveDateRange('');
+    setPlateInput('');
+    onPlateChange('');
+    setUploadedImage(null);
+    setImageFileName(null);
+    setBackendError(null);
+    setSelectedPhotoSighting(null);
+    onSelectRouteIndex(0);
+    onViewModeChange('empty');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   // Load backend cameras list if available
   useEffect(() => {
     listCameras()
@@ -719,10 +737,7 @@ export default function PoliceView({
               View Live Feed
             </button>
             <button
-              onClick={() => {
-                setActiveSightings([]);
-                onViewModeChange('empty');
-              }}
+              onClick={handleClearAll}
               style={{ background: '#FFFFFF', border: '1px solid #E2E4E8', color: '#64748B', borderRadius: '5px', padding: '9px 13px', fontSize: '12.5px', cursor: 'pointer', whiteSpace: 'nowrap' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = '#EEF2F6';
@@ -1080,8 +1095,12 @@ export default function PoliceView({
                 </div>
               ) : activeSightings.length === 0 ? (
                 <div style={{ padding: '64px 20px', textAlign: 'center', color: '#64748B' }}>
-                  <p style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>No detections found for plate {currentPlate}</p>
-                  <p style={{ fontSize: '12px', marginTop: '4px' }}>Verify the number or try searching TN69OA5253, TN67CY7549, or TN07OH2220.</p>
+                  <p style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>
+                    {currentPlate ? `No detections found for plate ${currentPlate}` : 'No active vehicle search'}
+                  </p>
+                  <p style={{ fontSize: '12px', marginTop: '4px' }}>
+                    {currentPlate ? 'Verify the number or try searching TN13Q5113, TN22BV3211, or TN02BC5854.' : 'Enter a license plate number or upload a vehicle frame crop to begin trajectory tracking.'}
+                  </p>
                 </div>
               ) : (
                 <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(206px, 1fr))', gap: '12px' }}>

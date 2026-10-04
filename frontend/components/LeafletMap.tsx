@@ -47,14 +47,19 @@ export default function LeafletMap({
       // Default center: Chennai OMR Corridor coordinates
       const defaultCenter: [number, number] = [12.985, 80.240];
 
-      // Initialize map with zoomAnimation disabled to eliminate _leaflet_pos crashes
+      // Initialize map with smooth controls, debounced wheel zooming, and fractional zoom levels
       const map = L.map(mapContainerRef.current, {
         center: defaultCenter,
         zoom: 15,
         zoomControl: false,
         attributionControl: false,
-        zoomAnimation: false,
-        fadeAnimation: false,
+        zoomAnimation: true,
+        fadeAnimation: true,
+        markerZoomAnimation: true,
+        zoomSnap: 0.5,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 120,
+        wheelDebounceTime: 80,
       });
       mapInstanceRef.current = map;
 
@@ -103,8 +108,32 @@ export default function LeafletMap({
     };
   }, []);
 
+  // Fetch real road geometry via Open Source Routing Machine (OSRM)
+  const fetchOSRMRoute = async (waypoints: [number, number][]): Promise<[number, number][]> => {
+    if (waypoints.length < 2) return waypoints;
+    try {
+      // Format: lng,lat;lng,lat
+      const locStr = waypoints.map(([lat, lng]) => `${lng},${lat}`).join(';');
+      const response = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${locStr}?overview=full&geometries=geojson`,
+        { signal: AbortSignal.timeout(3500) }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.routes?.[0]?.geometry?.coordinates) {
+          return data.routes[0].geometry.coordinates.map(
+            (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('OSRM road routing fallback to direct connection:', e);
+    }
+    return waypoints;
+  };
+
   // Helper to re-render route markers and polylines on existing map
-  const renderRoute = (
+  const renderRoute = async (
     L: any,
     map: any,
     layerGroup: any,
@@ -133,32 +162,41 @@ export default function LeafletMap({
 
     if (coordsWithPoints.length === 0) return;
 
-    // Glowing + core trajectory polylines
-    if (coordsWithPoints.length > 1) {
-      const polylineCoords: [number, number][] = coordsWithPoints.map((c) => [c.lat, c.lng]);
+    const bounds = L.latLngBounds([]);
+    coordsWithPoints.forEach(({ lat, lng }) => bounds.extend([lat, lng]));
 
-      // Glow path
-      L.polyline(polylineCoords, {
+    // Draw initial straight fallback or fetched OSRM road geometry
+    if (coordsWithPoints.length > 1) {
+      const waypoints: [number, number][] = coordsWithPoints.map((c) => [c.lat, c.lng]);
+
+      // Create glowing + core polylines
+      const glowPolyline = L.polyline(waypoints, {
         color: '#0891B2',
         weight: 6,
-        opacity: 0.25,
+        opacity: 0.35,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(layerGroup);
 
-      // Core sharp dashed path
-      L.polyline(polylineCoords, {
+      const corePolyline = L.polyline(waypoints, {
         color: '#0891B2',
-        weight: 3,
+        weight: 3.5,
         opacity: 0.95,
-        dashArray: '6, 8',
+        dashArray: '8, 8',
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(layerGroup);
+
+      // Fetch precise road network path from OSRM and snap line to road
+      fetchOSRMRoute(waypoints).then((roadCoords) => {
+        if (roadCoords && roadCoords.length > 0) {
+          glowPolyline.setLatLngs(roadCoords);
+          corePolyline.setLatLngs(roadCoords);
+        }
+      });
     }
 
-    // Pins
-    const bounds = L.latLngBounds([]);
+    // Render Markers / Pins
     coordsWithPoints.forEach(({ lat, lng, point, index }) => {
       const isSelected = activeIdx === index;
 
@@ -192,12 +230,11 @@ export default function LeafletMap({
       });
 
       markersRef.current.push(marker);
-      bounds.extend([lat, lng]);
     });
 
-    // Fit view without animation transitions
+    // Fit map bounds cleanly once when route is loaded
     try {
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: false });
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true, duration: 0.5 });
     } catch (e) {
       // ignore
     }
@@ -215,7 +252,7 @@ export default function LeafletMap({
     );
   }, [route]);
 
-  // Update Active Marker styling & pan when selectedRouteIndex changes
+  // Update Active Marker styling & pan smoothly when selectedRouteIndex changes
   useEffect(() => {
     if (!mapInstanceRef.current || markersRef.current.length === 0) return;
 
@@ -227,7 +264,7 @@ export default function LeafletMap({
           el.classList.add('active');
           try {
             marker.openPopup();
-            mapInstanceRef.current.panTo(marker.getLatLng(), { animate: false });
+            mapInstanceRef.current.panTo(marker.getLatLng(), { animate: true, duration: 0.4 });
           } catch (e) {
             // ignore
           }

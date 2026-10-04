@@ -48,17 +48,32 @@ async def create_camera(camera: dict):
 
 @router.get("/cameras")
 async def list_cameras():
-    # Return cameras for Chennai surveillance network with live stream URLs
-    cameras_data = [
-        {"id": "Camera_1", "name": "OMR Junction North", "latitude": 12.9854, "longitude": 80.2406},
-        {"id": "Camera_2", "name": "OMR Mid Corridor", "latitude": 12.9843, "longitude": 80.2402},
-        {"id": "Camera_3", "name": "OMR South Exit", "latitude": 12.9830, "longitude": 80.2400},
-        {"id": "Camera_4", "name": "NH-45 Main Checkpost", "latitude": 13.0000, "longitude": 80.2000},
-        {"id": "Camera_5", "name": "NH-45 South Extension", "latitude": 12.9985, "longitude": 80.2015},
-        {"id": "Camera_6", "name": "Velachery Bypass Checkpost", "latitude": 12.9845, "longitude": 80.2398}
-    ]
+    cameras_data = []
+    try:
+        from backend.app.core.db import get_pool
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, name, latitude, longitude, location_label, road_segment_id, is_active FROM cameras ORDER BY id"
+            )
+            cameras_data = [dict(r) for r in rows]
+    except Exception as e:
+        print(f"[cameras] DB fetch fallback triggered: {e}")
+
+    if not cameras_data:
+        # Fallback to exact database schema records
+        cameras_data = [
+            {"id": "Camera_1", "name": "OMR Junction North", "latitude": 12.9854222, "longitude": 80.2406222},
+            {"id": "Camera_2", "name": "OMR Mid Corridor", "latitude": 12.9843556, "longitude": 80.2402417},
+            {"id": "Camera_3", "name": "OMR Junction South", "latitude": 12.9845750, "longitude": 80.2398417},
+            {"id": "Camera_4", "name": "Velachery Link East", "latitude": 12.9862944, "longitude": 80.2258750},
+            {"id": "Camera_5", "name": "Velachery Junction South", "latitude": 12.9864611, "longitude": 80.2229444},
+            {"id": "Camera_6", "name": "Velachery Junction North", "latitude": 12.9877000, "longitude": 80.2231361},
+        ]
+
     for cam in cameras_data:
         cam["stream_url"] = f"/api/v1/cameras/{cam['id']}/stream"
+
     return envelope(cameras_data)
 
 
