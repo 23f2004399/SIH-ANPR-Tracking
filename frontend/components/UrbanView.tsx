@@ -327,7 +327,7 @@ export default function UrbanView() {
 
   if (!urbanGen) {
     return (
-      <div style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="no-print" style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ background: '#FFFFFF', border: '1px solid #E2E4E8', borderRadius: '6px', padding: '92px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '22px', textAlign: 'center' }}>
           <svg width="176" height="104" viewBox="0 0 176 104" fill="none">
             <g stroke="#E2E4E8" strokeWidth="1">
@@ -377,7 +377,7 @@ export default function UrbanView() {
   }
 
   return (
-    <div style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="no-print" style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Title & Filter Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
         <div>

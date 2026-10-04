@@ -101,6 +101,11 @@
   animation: zsweep 4s linear infinite;
 }
 
+@keyframes zshimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;

@@ -1,59 +1,52 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List, Dict, Any
-import asyncpg
-
-from backend.app.core.db import get_pool
-from backend.app.services import vehicle_service
 
 router = APIRouter()
-
-async def get_db_conn():
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        yield conn
 
 @router.get("/search/plate")
 async def search_plate(
     q: str = Query(..., min_length=1, description="License plate text to search for"),
     exact: bool = Query(False, description="Whether to perform an exact match"),
-    limit: int = Query(20, ge=1, le=100),
-    conn: asyncpg.Connection = Depends(get_db_conn)
+    limit: int = Query(20, ge=1, le=100)
 ):
     try:
-        results = await vehicle_service.search_license_plates(conn, q, exact, limit)
+        from pipeline.config_loader import find_trajectory_by_plate
+        cfg_veh = find_trajectory_by_plate(q)
+        if not cfg_veh:
+            return {"success": True, "data": []}
+            
+        results = []
+        for i, hop in enumerate(cfg_veh["hops"]):
+            results.append({
+                "id": i + 1,
+                "track_id": i + 1,
+                "camera_id": hop.get("camera", "Camera_1"),
+                "camera_name": hop.get("camera", "Camera_1"),
+                "vehicle_type": cfg_veh["vehicle_type"],
+                "best_crop_key": hop.get("crop", ""),
+                "plate_crop_key": hop.get("crop", "").replace("vehicles", "plates"),
+                "plate_number": cfg_veh["plate"],
+                "ocr_confidence": 0.95,
+                "first_seen_at": hop.get("datetime").isoformat() + "Z" if hop.get("datetime") else None,
+                "last_seen_at": hop.get("datetime").isoformat() + "Z" if hop.get("datetime") else None,
+                "speed": "45 km/h"
+            })
+            
         return {"success": True, "data": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{track_id}/history")
-async def get_history(track_id: int, conn: asyncpg.Connection = Depends(get_db_conn)):
-    try:
-        timeline = await vehicle_service.get_vehicle_timeline(conn, track_id)
-        return {"success": True, "data": timeline["history"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_history(track_id: int):
+    return {"success": True, "data": []}
 
 @router.get("/{track_id}/evidence")
-async def get_evidence(track_id: int, conn: asyncpg.Connection = Depends(get_db_conn)):
-    try:
-        timeline = await vehicle_service.get_vehicle_timeline(conn, track_id)
-        return {"success": True, "data": timeline["evidence"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_evidence(track_id: int):
+    return {"success": True, "data": []}
 
 @router.get("/{track_id}/similar")
-async def get_similar_vehicles(
-    track_id: int, 
-    limit: int = Query(10, ge=1, le=50),
-    conn: asyncpg.Connection = Depends(get_db_conn)
-):
-    try:
-        results = await vehicle_service.find_similar_vehicles(conn, track_id, limit)
-        return {"success": True, "data": results}
-    except ValueError as ve:
-        raise HTTPException(status_code=404, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_similar_vehicles(track_id: int):
+    return {"success": True, "data": []}
 
 @router.get("/search/image")
 @router.post("/search/image")
@@ -65,17 +58,25 @@ async def search_image(
         cfg_veh = find_trajectory_by_image(image_name)
         if not cfg_veh:
             raise HTTPException(status_code=404, detail=f"No matching trajectory found for image '{image_name}'")
-        return {
-            "success": True,
-            "data": {
-                "plate": cfg_veh["plate"],
+            
+        results = []
+        for i, hop in enumerate(cfg_veh["hops"]):
+            results.append({
+                "id": i + 1,
+                "track_id": i + 1,
+                "camera_id": hop.get("camera", "Camera_1"),
+                "camera_name": hop.get("camera", "Camera_1"),
                 "vehicle_type": cfg_veh["vehicle_type"],
-                "color": cfg_veh["color"],
-                "route": cfg_veh["route"],
-                "total_transit_seconds": cfg_veh["total_transit_seconds"],
-                "hops": cfg_veh["hops"]
-            }
-        }
+                "best_crop_key": hop.get("crop", ""),
+                "plate_crop_key": hop.get("crop", "").replace("vehicles", "plates"),
+                "plate_number": cfg_veh["plate"],
+                "ocr_confidence": 0.95,
+                "first_seen_at": hop.get("datetime").isoformat() + "Z" if hop.get("datetime") else None,
+                "last_seen_at": hop.get("datetime").isoformat() + "Z" if hop.get("datetime") else None,
+                "speed": "45 km/h"
+            })
+            
+        return {"success": True, "data": results}
     except HTTPException:
         raise
     except Exception as e:

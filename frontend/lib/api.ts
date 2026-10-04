@@ -81,6 +81,14 @@ export async function searchPlates(
   );
 }
 
+export async function searchImage(
+  imageName: string
+): Promise<VehicleTrack[]> {
+  return fetchJson<VehicleTrack[]>(
+    `/api/v1/vehicles/search/image?image_name=${encodeURIComponent(imageName)}`
+  );
+}
+
 export async function getVehicleHistory(trackId: number): Promise<VehicleObservation[]> {
   return fetchJson<VehicleObservation[]>(`/api/v1/vehicles/${trackId}/history`);
 }

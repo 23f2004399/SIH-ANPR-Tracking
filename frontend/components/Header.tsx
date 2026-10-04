@@ -101,7 +101,7 @@ export default function Header({
       : 'NEW DELHI · NCR · 24H WINDOW';
 
   return (
-    <header style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E4E8', position: 'sticky', top: 0, zIndex: 40 }}>
+    <header className="no-print" style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E4E8', position: 'sticky', top: 0, zIndex: 40 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px 28px', padding: '11px 22px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '5px', background: '#0F172A', flex: 'none' }}>

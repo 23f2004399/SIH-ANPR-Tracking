@@ -90,7 +90,6 @@ export default function VehiclePhotoModal({ sighting, onClose }: VehiclePhotoMod
                 Vehicle Frame Crop
               </span>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#94A3B8' }}>
-                {sighting.best_crop_key || 'crops/vehicles/...'}
               </span>
             </div>
             <div
@@ -147,7 +146,6 @@ export default function VehiclePhotoModal({ sighting, onClose }: VehiclePhotoMod
                   HSRP License Plate Crop
                 </span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#94A3B8' }}>
-                  {sighting.plate_crop_key}
                 </span>
               </div>
               <div

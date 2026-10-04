@@ -16,9 +16,9 @@ const DEFAULT_ROUTE: RoutePoint[] = [
 
 export default function Home() {
   const [mode, setMode] = useState<AppMode>('police');
-  const [plate, setPlate] = useState<string>('DL 01 AB 1234');
+  const [plate, setPlate] = useState<string>('');
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(2);
-  const [policeViewMode, setPoliceViewMode] = useState<PoliceViewMode>('grid');
+  const [policeViewMode, setPoliceViewMode] = useState<PoliceViewMode>('empty');
 
   const handleSelectAlert = (alert: AlertNotification, index: number) => {
     setMode('police');
@@ -36,7 +36,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#F4F5F7] flex flex-col">
       {/* Screen Interactive App Container */}
-      <div className="no-print flex flex-col flex-1">
+      <div className="flex flex-col flex-1">
         <Header
           mode={mode}
           onModeChange={setMode}
@@ -58,12 +58,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Print-Only Police Dossier for PDF Export */}
-      <PrintDossier
-        plate={plate}
-        route={DEFAULT_ROUTE}
-        detectionsCount={18}
-      />
     </div>
   );
 }

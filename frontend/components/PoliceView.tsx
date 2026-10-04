@@ -12,9 +12,10 @@ import {
   VehicleObservation,
   EvidenceAsset,
 } from '@/types';
-import { searchPlates, getVehicleHistory, getVehicleEvidence, listCameras } from '@/lib/api';
+import { searchPlates, searchImage, getVehicleHistory, getVehicleEvidence, listCameras } from '@/lib/api';
 import dynamic from 'next/dynamic';
 import VehiclePhotoModal from './VehiclePhotoModal';
+import PrintDossier from './PrintDossier';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
@@ -202,9 +203,9 @@ export default function PoliceView({
   const [backendError, setBackendError] = useState<string | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [activeSightings, setActiveSightings] = useState<SightingItem[]>([]);
-  const [activeRoute, setActiveRoute] = useState<RoutePoint[]>(DEFAULT_ROUTE);
-  const [activeCameraCount, setActiveCameraCount] = useState<number>(11);
-  const [activeDateRange, setActiveDateRange] = useState<string>('09 Sep 2026 · 13:30–15:30 IST');
+  const [activeRoute, setActiveRoute] = useState<RoutePoint[]>([]);
+  const [activeCameraCount, setActiveCameraCount] = useState<number>(0);
+  const [activeDateRange, setActiveDateRange] = useState<string>('');
   const [selectedPhotoSighting, setSelectedPhotoSighting] = useState<SightingItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -414,6 +415,8 @@ export default function PoliceView({
     return { sightings, route, uniqueCams, dateRange };
   };
 
+  const randomDelay = () => new Promise<void>((res) => setTimeout(res, 1000 + Math.random() * 1000));
+
   const executeSearch = async (q: string) => {
     setIsLoading(true);
     setBackendError(null);
@@ -421,7 +424,7 @@ export default function PoliceView({
     const normQ = q.trim().toUpperCase();
 
     try {
-      const results = await searchPlates(normQ, false, 20);
+      const [results] = await Promise.all([searchPlates(normQ, false, 20), randomDelay()]);
       if (results && results.length > 0) {
         const { sightings, route, uniqueCams, dateRange } = await enrichAndMapTracks(results, normQ);
         setActiveSightings(sightings);
@@ -469,7 +472,7 @@ export default function PoliceView({
       });
       setActiveSightings(mockSightings);
       setActiveRoute(DEFAULT_ROUTE);
-      setActiveCameraCount(11);
+      setActiveCameraCount(2);
       setActiveDateRange('09 Sep 2026 · 13:30–15:30 IST');
     } else {
       // Empty results
@@ -496,8 +499,8 @@ export default function PoliceView({
     ? `Showing ${startIdx + 1}–${Math.min(startIdx + perPage, totalCount)} of ${totalCount} detections`
     : '0 detections';
 
-  const route = activeRoute.length > 0 ? activeRoute : DEFAULT_ROUTE;
-  const selRoute = route[selectedRouteIndex] || route[0] || DEFAULT_ROUTE[0];
+  const route = activeRoute;
+  const selRoute = route[selectedRouteIndex] || route[0] || null;
 
   const handleSearchBtn = () => {
     if (!plateInput.trim()) return;
@@ -523,21 +526,30 @@ export default function PoliceView({
   };
 
   const handleImageMatch = async () => {
+    if (!imageFileName) return;
     setIsLoading(true);
     setBackendError(null);
     try {
-      const results = await searchPlates(currentPlate, false, 10);
+      const [results] = await Promise.all([searchImage(imageFileName), randomDelay()]);
       if (results && results.length > 0) {
-        const { sightings, route, uniqueCams, dateRange } = await enrichAndMapTracks(results, currentPlate);
+        // results is VehicleTrack[] — flat objects, not { track: ... } wrappers
+        const detectedPlate = (results[0] as any).plate_number || (results[0] as any).license_plate || '';
+        if (detectedPlate) {
+          onPlateChange(detectedPlate);
+        }
+        const { sightings, route, uniqueCams, dateRange } = await enrichAndMapTracks(results, detectedPlate);
         setActiveSightings(sightings);
         setActiveRoute(route);
         setActiveCameraCount(uniqueCams);
         setActiveDateRange(dateRange);
+      } else {
+        setBackendError(`No vehicle matched for image "${imageFileName}". Try uploading a camera crop like Camera_4_track_195.jpg.`);
       }
       onViewModeChange('grid');
       setPage(0);
     } catch (err: any) {
       console.warn('Backend image Re-ID error:', err);
+      setBackendError(`Image search failed: ${err?.message || 'Unknown error'}`);
       onViewModeChange('grid');
       setPage(0);
     } finally {
@@ -561,7 +573,8 @@ export default function PoliceView({
   const A = '#0891B2';
 
   return (
-    <div style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <>
+      <div className="no-print" style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Backend Notice Banner if error */}
       {backendError && (
         <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '5px', padding: '9px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -897,17 +910,35 @@ export default function PoliceView({
                     {activeCameraCount} camera node{activeCameraCount === 1 ? '' : 's'} · {activeDateRange}
                   </div>
                 </div>
-                <button
-                  onClick={() => onViewModeChange('map')}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0891B2', color: '#FFFFFF', border: 'none', borderRadius: '5px', padding: '10px 16px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#0E7490')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#0891B2')}
-                >
-                  Show trajectory map →
-                </button>
+                {activeSightings.length > 0 && (
+                  <button
+                    onClick={() => onViewModeChange('map')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0891B2', color: '#FFFFFF', border: 'none', borderRadius: '5px', padding: '10px 16px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#0E7490')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '#0891B2')}
+                  >
+                    Show trajectory map →
+                  </button>
+                )}
               </div>
 
-              {activeSightings.length === 0 ? (
+              {isLoading ? (
+                <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(206px, 1fr))', gap: '12px' }}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} style={{ border: '1px solid #E2E4E8', borderRadius: '5px', overflow: 'hidden', background: '#FFFFFF' }}>
+                      <div style={{ position: 'relative', aspectRatio: '16/10', background: 'linear-gradient(90deg, #EDF0F4 25%, #E4E9EF 50%, #EDF0F4 75%)', backgroundSize: '200% 100%', animation: 'zshimmer 1.4s ease-in-out infinite' }} />
+                      <div style={{ padding: '10px 11px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                          <div style={{ height: '12px', width: '60px', borderRadius: '3px', background: 'linear-gradient(90deg, #EDF0F4 25%, #E4E9EF 50%, #EDF0F4 75%)', backgroundSize: '200% 100%', animation: 'zshimmer 1.4s ease-in-out infinite' }} />
+                          <div style={{ height: '12px', width: '40px', borderRadius: '3px', background: 'linear-gradient(90deg, #EDF0F4 25%, #E4E9EF 50%, #EDF0F4 75%)', backgroundSize: '200% 100%', animation: 'zshimmer 1.4s ease-in-out infinite 0.2s' }} />
+                        </div>
+                        <div style={{ height: '11px', width: '90%', borderRadius: '3px', background: 'linear-gradient(90deg, #EDF0F4 25%, #E4E9EF 50%, #EDF0F4 75%)', backgroundSize: '200% 100%', animation: 'zshimmer 1.4s ease-in-out infinite 0.1s' }} />
+                        <div style={{ height: '10px', width: '70%', borderRadius: '3px', background: 'linear-gradient(90deg, #EDF0F4 25%, #E4E9EF 50%, #EDF0F4 75%)', backgroundSize: '200% 100%', animation: 'zshimmer 1.4s ease-in-out infinite 0.3s' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : activeSightings.length === 0 ? (
                 <div style={{ padding: '64px 20px', textAlign: 'center', color: '#64748B' }}>
                   <p style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>No detections found for plate {currentPlate}</p>
                   <p style={{ fontSize: '12px', marginTop: '4px' }}>Verify the number or try searching TN69OA5253, TN67CY7549, or TN07OH2220.</p>
@@ -966,7 +997,7 @@ export default function PoliceView({
                           {s.plateTag}
                         </div>
                         <div style={{ position: 'absolute', left: '7px', bottom: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '8.5px', color: '#FFFFFF', textShadow: '0 1px 2px rgba(0,0,0,0.8)', background: 'rgba(15,23,42,0.65)', padding: '1px 5px', borderRadius: '2px', zIndex: 10 }}>
-                          {s.best_crop_key ? s.best_crop_key.split('/').pop() : 'frame crop'}
+                          frame crop
                         </div>
                         <div style={{ position: 'absolute', right: '7px', bottom: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#0891B2', background: 'rgba(255,255,255,0.92)', padding: '1px 4px', borderRadius: '2px', zIndex: 10, fontWeight: 600 }}>
                           Inspect ↗
@@ -1068,90 +1099,104 @@ export default function PoliceView({
         <aside style={{ background: '#FFFFFF', border: '1px solid #E2E4E8', borderRadius: '6px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', padding: '12px 14px', borderBottom: '1px solid #EEF1F4' }}>
             <span style={{ fontSize: '13.5px', fontWeight: 600 }}>Movement History</span>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9.5px', color: '#94A3B8' }}>31 AUG 2026</span>
+            {activeDateRange && (
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9.5px', color: '#94A3B8' }}>{activeDateRange.split(' · ')[0]?.toUpperCase()}</span>
+            )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {route.map((l, i) => (
-              <button
-                key={l.n}
-                onClick={() => onSelectRouteIndex(i)}
-                style={{
-                  display: 'flex',
-                  gap: '11px',
-                  alignItems: 'flex-start',
-                  width: '100%',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  padding: '12px 14px',
-                  border: 'none',
-                  borderBottom: '1px solid #EEF1F4',
-                  borderLeft: `2px solid ${selectedRouteIndex === i ? A : 'transparent'}`,
-                  background: selectedRouteIndex === i ? '#F7FBFC' : '#FFFFFF',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <span
-                  style={{
-                    flex: 'none',
-                    width: '21px',
-                    height: '21px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    background: selectedRouteIndex === i ? '#0F172A' : '#F1F4F7',
-                    color: selectedRouteIndex === i ? '#FFFFFF' : '#94A3B8',
-                    border: selectedRouteIndex === i ? 'none' : '1px solid #E2E4E8',
-                  }}
-                >
-                  {l.n}
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, textAlign: 'left' }}>
-                  <span style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12.5px', color: '#0F172A', fontWeight: 500 }}>{l.time}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#64748B' }}>{l.cam}</span>
-                  </span>
-                  <span style={{ fontSize: '11.5px', color: '#64748B', textWrap: 'pretty' }}>{l.street}</span>
-                  <span
+          {route.length === 0 ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 3" />
+              </svg>
+              <span style={{ fontSize: '12px', color: '#94A3B8', lineHeight: 1.5 }}>No vehicle selected.<br/>Search by plate or image to see movement history.</span>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {route.map((l, i) => (
+                  <button
+                    key={l.n}
+                    onClick={() => onSelectRouteIndex(i)}
                     style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: '10.5px',
-                      color: l.speed.startsWith('Stopped') ? '#92400E' : '#065F46',
+                      display: 'flex',
+                      gap: '11px',
+                      alignItems: 'flex-start',
+                      width: '100%',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      padding: '12px 14px',
+                      border: 'none',
+                      borderBottom: '1px solid #EEF1F4',
+                      borderLeft: `2px solid ${selectedRouteIndex === i ? A : 'transparent'}`,
+                      background: selectedRouteIndex === i ? '#F7FBFC' : '#FFFFFF',
+                      fontFamily: 'inherit',
                     }}
                   >
-                    {l.speed}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
+                    <span
+                      style={{
+                        flex: 'none',
+                        width: '21px',
+                        height: '21px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        background: selectedRouteIndex === i ? '#0F172A' : '#F1F4F7',
+                        color: selectedRouteIndex === i ? '#FFFFFF' : '#94A3B8',
+                        border: selectedRouteIndex === i ? 'none' : '1px solid #E2E4E8',
+                      }}
+                    >
+                      {l.n}
+                    </span>
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, textAlign: 'left' }}>
+                      <span style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12.5px', color: '#0F172A', fontWeight: 500 }}>{l.time}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#64748B' }}>{l.cam}</span>
+                      </span>
+                      <span style={{ fontSize: '11.5px', color: '#64748B', textWrap: 'pretty' }}>{l.street}</span>
+                      <span
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: '10.5px',
+                          color: l.speed.startsWith('Stopped') ? '#92400E' : '#065F46',
+                        }}
+                      >
+                        {l.speed}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-          <div style={{ padding: '12px 14px', borderTop: '1px solid #EEF1F4', background: '#FBFCFD', display: 'flex', flexDirection: 'column', gap: '9px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11.5px', color: '#64748B' }}>
-              <span>Average speed</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0F172A', flex: 'none' }}>
-                {activeSightings.length > 1 ? '43.5 km/h' : '45 km/h'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11.5px', color: '#64748B' }}>
-              <span>Dwell at Corridor</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#92400E', flex: 'none' }}>
-                {activeSightings.length > 1 ? '6.5 min' : '12 min'}
-              </span>
-            </div>
-            <button
-              onClick={onExportPdf}
-              style={{ marginTop: '3px', width: '100%', background: '#FFFFFF', border: '1px solid #D8DDE4', color: '#0F172A', borderRadius: '5px', padding: '10px', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#EEF2F6')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
-            >
-              Export police log (PDF)
-            </button>
-          </div>
+              <div style={{ padding: '12px 14px', borderTop: '1px solid #EEF1F4', background: '#FBFCFD', display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11.5px', color: '#64748B' }}>
+                  <span>Average speed</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0F172A', flex: 'none' }}>
+                    {activeSightings.length > 1 ? '43.5 km/h' : '45 km/h'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '11.5px', color: '#64748B' }}>
+                  <span>Dwell at Corridor</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#92400E', flex: 'none' }}>
+                    {activeSightings.length > 1 ? '6.5 min' : '12 min'}
+                  </span>
+                </div>
+                <button
+                  onClick={onExportPdf}
+                  style={{ marginTop: '3px', width: '100%', background: '#FFFFFF', border: '1px solid #D8DDE4', color: '#0F172A', borderRadius: '5px', padding: '10px', fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#EEF2F6')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+                >
+                  Export police log (PDF)
+                </button>
+              </div>
+            </>
+          )}
         </aside>
       </section>
 
@@ -1162,7 +1207,16 @@ export default function PoliceView({
           onClose={() => setSelectedPhotoSighting(null)}
         />
       )}
-    </div>
+      
+      </div>
+      
+      {/* Print-Only Police Dossier for PDF Export */}
+      <PrintDossier
+        plate={currentPlate}
+        route={activeRoute}
+        detectionsCount={activeSightings.length}
+      />
+    </>
   );
 }
 
