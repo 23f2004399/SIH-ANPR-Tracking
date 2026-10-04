@@ -890,32 +890,25 @@ export default function PoliceView({
                 </span>
               </div>
               <div style={{ padding: '16px' }}>
-                <div style={{ position: 'relative', border: '1px solid #E2E4E8', borderRadius: '5px', overflow: 'hidden', aspectRatio: '16/9', minHeight: '300px', background: 'linear-gradient(#EDF0F4, #E4E8ED)' }}>
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: '52%', bottom: 0, background: 'linear-gradient(#DFE4EA, #D6DCE3)' }} />
-                  {/* Car Bounding Box */}
-                  <div style={{ position: 'absolute', left: '11%', top: '36%', width: '25%', height: '32%', border: '1.5px solid #0891B2', borderRadius: '2px', background: 'rgba(8,145,178,.05)' }}>
-                    <span style={{ position: 'absolute', top: '-17px', left: '-1.5px', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', background: '#0891B2', color: '#FFFFFF', padding: '2px 5px', borderRadius: '2px' }}>
-                      CAR · {currentPlate} · 0.98
-                    </span>
-                  </div>
-                  {/* Two Wheeler Box */}
-                  <div style={{ position: 'absolute', left: '45%', top: '48%', width: '18%', height: '24%', border: '1.5px solid #0F172A', borderRadius: '2px' }}>
-                    <span style={{ position: 'absolute', top: '-17px', left: '-1.5px', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', background: '#0F172A', color: '#FFFFFF', padding: '2px 5px', borderRadius: '2px' }}>
-                      2W · TN 09 BK 4102
-                    </span>
-                  </div>
-                  {/* Truck Box */}
-                  <div style={{ position: 'absolute', left: '70%', top: '30%', width: '21%', height: '38%', border: '1.5px solid #D97706', borderRadius: '2px' }}>
-                    <span style={{ position: 'absolute', top: '-17px', left: '-1.5px', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', background: '#D97706', color: '#FFFFFF', padding: '2px 5px', borderRadius: '2px' }}>
-                      TRUCK · PLATE OCCLUDED
-                    </span>
-                  </div>
+                <div style={{ position: 'relative', border: '1px solid #E2E4E8', borderRadius: '5px', overflow: 'hidden', aspectRatio: '16/9', minHeight: '300px', background: '#0F172A' }}>
+                  <video
+                    key={currentSelectedCam.id}
+                    src={currentSelectedCam.stream_url || `/api/v1/cameras/${currentSelectedCam.id}/stream`}
+                    controls
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#0F172A', display: 'block' }}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
                   {/* Live HUD metadata */}
-                  <div style={{ position: 'absolute', left: '12px', top: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,.92)', border: '1px solid #E2E4E8', borderRadius: '4px', padding: '5px 8px' }}>
+                  <div style={{ position: 'absolute', left: '12px', top: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#FFFFFF', background: 'rgba(15,23,42,0.78)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '5px 8px', pointerEvents: 'none' }}>
                     {currentSelectedCam.id} · {Number(currentSelectedCam.latitude).toFixed(4)}, {Number(currentSelectedCam.longitude).toFixed(4)}
                   </div>
-                  <div style={{ position: 'absolute', right: '12px', bottom: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#64748B', background: 'rgba(255,255,255,.92)', border: '1px solid #E2E4E8', borderRadius: '4px', padding: '5px 8px' }}>
-                    38 detections / min
+                  <div style={{ position: 'absolute', right: '12px', bottom: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#CBD5E1', background: 'rgba(15,23,42,0.78)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '5px 8px', pointerEvents: 'none' }}>
+                    LIVE FEED · ANNOTATED
                   </div>
                 </div>
               </div>

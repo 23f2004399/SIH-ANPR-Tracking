@@ -4,6 +4,7 @@ export interface Camera {
   latitude: number;
   longitude: number;
   rtsp_url?: string;
+  stream_url?: string;
   road_segment_id?: string;
   is_active?: boolean;
 }

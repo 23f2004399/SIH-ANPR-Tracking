@@ -1,0 +1,23 @@
+# ==============================================================================
+# CAMERA RECORDINGS / VIDEO FEEDS CONFIGURATION
+# Maps camera IDs to their annotated video recordings for live feed streaming.
+# Paths are relative to the project root.
+# ==============================================================================
+
+[Camera_1]
+video_path = outputs_test/camera4_annotated_compressed_devanshu_velachery.mp4
+
+[Camera_2]
+video_path = outputs_test/camera5_annotated_compres_ankit_velachery.mp4
+
+[Camera_3]
+video_path = outputs_test/camera6_annotated_compres_yogii_velachery.mp4
+
+[Camera_4]
+video_path = outputs_test/camera4_annotated_compressed_devanshu_velachery.mp4
+
+[Camera_5]
+video_path = outputs_test/camera5_annotated_compres_ankit_velachery.mp4
+
+[Camera_6]
+video_path = outputs_test/camera6_annotated_compres_yogii_velachery.mp4
