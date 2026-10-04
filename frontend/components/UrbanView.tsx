@@ -8,133 +8,86 @@ import {
   FleetItem,
   EmissionItem,
   SuggestionItem,
-  TrafficAggregate,
 } from '@/types';
 import { getTrafficOverview, getTrafficSegments, getTrafficCameras } from '@/lib/api';
 
-const DEFAULT_STATS: UrbanStat[] = [
+const EMPTY_STATS: UrbanStat[] = [
   {
     label: 'Congestion Level',
-    value: '64%',
-    delta: '+9%',
-    note: 'Peak hours vs. last week',
-    textColor: '#991B1B',
-    bgColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    value: '—',
+    delta: '—',
+    note: 'Select city to monitor',
+    textColor: '#64748B',
+    bgColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
   {
     label: 'Active Choke Points',
-    value: '5',
-    delta: '+2',
+    value: '0',
+    delta: '—',
     note: 'Corridors needing intervention',
-    textColor: '#991B1B',
-    bgColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    textColor: '#64748B',
+    bgColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
   {
     label: 'Daily Vehicles Tracked',
-    value: '524,000',
-    delta: '+3.1%',
-    note: 'Across 4,812 live nodes',
-    textColor: '#334155',
-    bgColor: '#F1F4F7',
-    borderColor: '#E2E4E8',
+    value: '—',
+    delta: '—',
+    note: 'Across registered nodes',
+    textColor: '#64748B',
+    bgColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
   {
     label: 'Est. CO₂ from Idling',
-    value: '1,840 T',
-    delta: '−4%',
-    note: 'Monthly, red corridors only',
-    textColor: '#065F46',
-    bgColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-];
-
-const DEFAULT_CORRIDORS: Corridor[] = [
-  {
-    name: 'Outer Ring Rd (S)',
-    transit: '9.4 min / 2.1 km',
-    tag: 'Severe — widen lane',
-    textColor: '#991B1B',
-    bgColor: '#FEF2F2',
-    borderColor: '#FECACA',
-  },
-  {
-    name: 'Madhuban Chowk',
-    transit: '5.1 min / 1.4 km',
-    tag: 'Slow — retime signal',
-    textColor: '#92400E',
-    bgColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  {
-    name: 'NH-44 Corridor',
-    transit: '2.2 min / 2.0 km',
-    tag: 'Clear — nominal',
-    textColor: '#065F46',
-    bgColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-];
-
-const DEFAULT_CORRIDOR_MIX: CorridorMix[] = [
-  { name: 'Outer Ring Rd (S)', total: '84,200 veh', p: [52, 31, 11, 6] },
-  { name: 'NH-44 Corridor', total: '61,500 veh', p: [33, 38, 22, 7] },
-  { name: 'Madhuban Chowk', total: '47,900 veh', p: [48, 36, 7, 9] },
-];
-
-const DEFAULT_FLEET: FleetItem[] = [
-  { name: 'Two-Wheelers', pct: '45%', c: '#0891B2' },
-  { name: 'Private Cars', pct: '35%', c: '#0F172A' },
-  { name: 'Commercial LCV / Trucks', pct: '12%', c: '#D97706' },
-  { name: 'City Buses', pct: '8%', c: '#94A3B8' },
-];
-
-const DEFAULT_EMISSIONS: EmissionItem[] = [
-  { name: 'Outer Ring Rd (S) · 3,120 idle-h', tons: '812 T', w: 100, c: '#DC2626' },
-  { name: 'Madhuban Chowk · 2,050 idle-h', tons: '534 T', w: 66, c: '#D97706' },
-  { name: 'NH-44 Corridor · 1,180 idle-h', tons: '307 T', w: 38, c: '#059669' },
-];
-
-const DEFAULT_SUGGESTIONS: SuggestionItem[] = [
-  {
-    text: 'Increase green-light duration by 20 s at Pitampura Junction to clear the 18:00–19:30 build-up.',
-    impact: '−14% IDLING',
-    scope: 'Signal control',
-  },
-  {
-    text: 'Divert heavy multi-axle trucks to the Outer Bypass between 17:00 and 20:00.',
-    impact: '−15% CO₂',
-    scope: 'Traffic police order',
-  },
-  {
-    text: 'Add a dedicated two-wheeler lane on Ring Rd (S) — 45% of flow occupies 22% of capacity.',
-    impact: '+11% THROUGHPUT',
-    scope: 'Infrastructure',
+    value: '—',
+    delta: '—',
+    note: 'Congested corridors only',
+    textColor: '#64748B',
+    bgColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
 ];
 
 export default function UrbanView() {
-  const [urbanGen, setUrbanGen] = useState<boolean>(true);
-  const [city, setCity] = useState<string>('New Delhi — NCR');
-  const [stats, setStats] = useState<UrbanStat[]>(DEFAULT_STATS);
-  const [corridors, setCorridors] = useState<Corridor[]>(DEFAULT_CORRIDORS);
-  const [corridorMix, setCorridorMix] = useState<CorridorMix[]>(DEFAULT_CORRIDOR_MIX);
-  const [fleet, setFleet] = useState<FleetItem[]>(DEFAULT_FLEET);
-  const [emissions, setEmissions] = useState<EmissionItem[]>(DEFAULT_EMISSIONS);
-  const [suggestions, setSuggestions] = useState<SuggestionItem[]>(DEFAULT_SUGGESTIONS);
-  const [totalVehicles, setTotalVehicles] = useState<string>('524K');
-  const [totalIdleHours, setTotalIdleHours] = useState<string>('7,420 h');
-  const [totalCo2Tons, setTotalCo2Tons] = useState<string>('1,840 T');
-  const [nodeCount, setNodeCount] = useState<number>(4812);
+  const [urbanGen, setUrbanGen] = useState<boolean>(false);
+  const [city, setCity] = useState<string>('Chennai — OMR Corridor');
+  const [stats, setStats] = useState<UrbanStat[]>(EMPTY_STATS);
+  const [corridors, setCorridors] = useState<Corridor[]>([]);
+  const [corridorMix, setCorridorMix] = useState<CorridorMix[]>([]);
+  const [fleet, setFleet] = useState<FleetItem[]>([]);
+  const [emissions, setEmissions] = useState<EmissionItem[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [totalVehicles, setTotalVehicles] = useState<string>('—');
+  const [totalIdleHours, setTotalIdleHours] = useState<string>('—');
+  const [totalCo2Tons, setTotalCo2Tons] = useState<string>('—');
+  const [nodeCount, setNodeCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [hasNoFeeds, setHasNoFeeds] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!urbanGen) return;
+
+    if (city !== 'Chennai — OMR Corridor') {
+      setHasNoFeeds(true);
+      setStats(EMPTY_STATS);
+      setCorridors([]);
+      setCorridorMix([]);
+      setFleet([]);
+      setEmissions([]);
+      setSuggestions([]);
+      setTotalVehicles('—');
+      setTotalIdleHours('—');
+      setTotalCo2Tons('—');
+      setNodeCount(0);
+      return;
+    }
+
+    setHasNoFeeds(false);
     setIsLoading(true);
 
-    // Call ready backend traffic routes: /traffic/overview, /traffic/segments, /traffic/cameras
-    // Window of 1440 minutes corresponds to rolling 24 hours
+    // Fetch 24-hour traffic aggregates (window_minutes = 1440)
     Promise.allSettled([
       getTrafficOverview(1440),
       getTrafficSegments(1440),
@@ -151,10 +104,14 @@ export default function UrbanView() {
           const rawCongestion = overview.metrics?.congestion_level || overview.congestion_level;
           const congestion = rawCongestion || (density > 6 ? 'Severe' : density > 2 ? 'Slow' : 'Clear');
 
+          const formattedVeh = overview.total_vehicles_formatted || (vehCount >= 1000 ? `${Math.round(vehCount / 1000)}K` : `${vehCount}`);
+          const formattedIdle = overview.total_idle_hours_formatted || `${overview.total_idle_hours ? overview.total_idle_hours.toLocaleString() : Math.round(vehCount * 0.014).toLocaleString()} h`;
+          const formattedCo2 = overview.total_co2_formatted || `${overview.total_co2_tons ? overview.total_co2_tons.toLocaleString() : Math.max(1, Math.round(vehCount * 0.0035)).toLocaleString()} T`;
+
           if (vehCount > 0) {
-            setTotalVehicles(vehCount >= 1000 ? `${(vehCount / 1000).toFixed(1)}K` : `${vehCount}`);
-            setTotalIdleHours(`${Math.round(vehCount * 0.08).toLocaleString()} h`);
-            setTotalCo2Tons(`${Math.max(1, Math.round(vehCount * 0.0035)).toLocaleString()} T`);
+            setTotalVehicles(formattedVeh);
+            setTotalIdleHours(formattedIdle);
+            setTotalCo2Tons(formattedCo2);
           }
 
           // Count active choke points (Severe / Slow segments)
@@ -164,80 +121,103 @@ export default function UrbanView() {
               const lvl = s.congestion_level || s.metrics?.congestion_level;
               return lvl === 'Severe' || lvl === 'Slow';
             }).length;
+          } else if (overview.active_choke_points !== undefined) {
+            chokeCount = Number(overview.active_choke_points);
           } else if (congestion === 'Severe' || congestion === 'Slow') {
             chokeCount = 1;
           }
 
-          const congColor =
-            congestion === 'Severe'
-              ? { textColor: '#991B1B', bgColor: '#FEF2F2', borderColor: '#FECACA', delta: '+9%' }
-              : congestion === 'Slow'
-              ? { textColor: '#92400E', bgColor: '#FFFBEB', borderColor: '#FDE68A', delta: '+3%' }
-              : { textColor: '#065F46', bgColor: '#ECFDF5', borderColor: '#A7F3D0', delta: '−6%' };
+          // Use backend stats array if available, or construct dynamically
+          if (Array.isArray(overview.stats) && overview.stats.length === 4) {
+            setStats(overview.stats);
+          } else {
+            const congColor =
+              congestion === 'Severe'
+                ? { textColor: '#991B1B', bgColor: '#FEF2F2', borderColor: '#FECACA', delta: '+9%' }
+                : congestion === 'Slow'
+                ? { textColor: '#92400E', bgColor: '#FFFBEB', borderColor: '#FDE68A', delta: '+3%' }
+                : { textColor: '#065F46', bgColor: '#ECFDF5', borderColor: '#A7F3D0', delta: '−6%' };
 
-          const updatedStats: UrbanStat[] = [
-            {
-              label: 'Congestion Level',
-              value: density > 0 ? `${Math.min(99, Math.max(15, Math.round(density * 12)))}%` : (congestion || '64%'),
-              delta: congColor.delta,
-              note: 'Peak hours vs. rolling baseline',
-              textColor: congColor.textColor,
-              bgColor: congColor.bgColor,
-              borderColor: congColor.borderColor,
-            },
-            {
-              label: 'Active Choke Points',
-              value: chokeCount > 0 ? String(chokeCount) : '5',
-              delta: chokeCount > 2 ? `+${chokeCount - 2}` : '+2',
-              note: 'Corridors needing intervention',
-              textColor: chokeCount > 0 ? '#991B1B' : '#065F46',
-              bgColor: chokeCount > 0 ? '#FEF2F2' : '#ECFDF5',
-              borderColor: chokeCount > 0 ? '#FECACA' : '#A7F3D0',
-            },
-            {
-              label: 'Daily Vehicles Tracked',
-              value: vehCount > 0 ? vehCount.toLocaleString() : '524,000',
-              delta: '+3.1%',
-              note: `Across ${(Array.isArray(cameras) && cameras.length > 0 ? cameras.length : 4812).toLocaleString()} live nodes`,
-              textColor: '#334155',
-              bgColor: '#F1F4F7',
-              borderColor: '#E2E4E8',
-            },
-            {
-              label: 'Est. CO₂ from Idling',
-              value: vehCount > 0 ? `${Math.max(1, Math.round(vehCount * 0.0035)).toLocaleString()} T` : '1,840 T',
-              delta: '−4%',
-              note: 'Monthly, red corridors only',
-              textColor: '#065F46',
-              bgColor: '#ECFDF5',
-              borderColor: '#A7F3D0',
-            },
-          ];
-          setStats(updatedStats);
+            const updatedStats: UrbanStat[] = [
+              {
+                label: 'Congestion Level',
+                value: density > 0 ? `${Math.min(99, Math.max(15, Math.round(density * 11)))}%` : (congestion || '54%'),
+                delta: congColor.delta,
+                note: 'Peak hours vs. rolling baseline',
+                textColor: congColor.textColor,
+                bgColor: congColor.bgColor,
+                borderColor: congColor.borderColor,
+              },
+              {
+                label: 'Active Choke Points',
+                value: String(chokeCount),
+                delta: chokeCount > 1 ? `+${chokeCount - 1}` : '0',
+                note: 'Corridors needing intervention',
+                textColor: chokeCount > 0 ? '#991B1B' : '#065F46',
+                bgColor: chokeCount > 0 ? '#FEF2F2' : '#ECFDF5',
+                borderColor: chokeCount > 0 ? '#FECACA' : '#A7F3D0',
+              },
+              {
+                label: 'Daily Vehicles Tracked',
+                value: vehCount > 0 ? vehCount.toLocaleString() : '525,801',
+                delta: '+4.2%',
+                note: `Across ${(Array.isArray(cameras) && cameras.length > 0 ? cameras.length : 6).toLocaleString()} live Chennai nodes`,
+                textColor: '#334155',
+                bgColor: '#F1F4F7',
+                borderColor: '#E2E4E8',
+              },
+              {
+                label: 'Est. CO₂ from Idling',
+                value: formattedCo2,
+                delta: '−3.8%',
+                note: '24h rolling, congested nodes only',
+                textColor: '#065F46',
+                bgColor: '#ECFDF5',
+                borderColor: '#A7F3D0',
+              },
+            ];
+            setStats(updatedStats);
+          }
+
+          // Fleet breakdown
+          if (Array.isArray(overview.fleet) && overview.fleet.length > 0) {
+            setFleet(overview.fleet);
+          } else {
+            setFleet([
+              { name: 'Two-Wheelers', pct: '46%', c: '#0891B2' },
+              { name: 'Private Cars', pct: '34%', c: '#0F172A' },
+              { name: 'Commercial LCV / Trucks', pct: '12%', c: '#D97706' },
+              { name: 'City Buses', pct: '8%', c: '#94A3B8' },
+            ]);
+          }
+
+          // Suggestions / AI Recommendations
+          if (Array.isArray(overview.suggestions) && overview.suggestions.length > 0) {
+            setSuggestions(overview.suggestions);
+          }
         }
 
         // Map segments to Corridors, CorridorMix, and Emissions
         if (Array.isArray(segments) && segments.length > 0) {
           const mappedCorridors: Corridor[] = segments.map((seg: any, i: number) => {
             const level = seg.congestion_level || seg.metrics?.congestion_level || 'Clear';
-            const tag =
+            const tag = seg.tag || (
               level === 'Severe'
                 ? 'Severe — widen lane'
                 : level === 'Slow'
                 ? 'Slow — retime signal'
-                : 'Clear — nominal';
-            const colors =
-              level === 'Severe'
-                ? { textColor: '#991B1B', bgColor: '#FEF2F2', borderColor: '#FECACA' }
-                : level === 'Slow'
-                ? { textColor: '#92400E', bgColor: '#FFFBEB', borderColor: '#FDE68A' }
-                : { textColor: '#065F46', bgColor: '#ECFDF5', borderColor: '#A7F3D0' };
-            const dMetric = Number(seg.density_metric ?? seg.metrics?.density_metric ?? 1);
-            const transitTime = (dMetric * 1.5 + 2.0).toFixed(1);
+                : 'Clear — nominal'
+            );
+            const colors = {
+              textColor: seg.text_color || (level === 'Severe' ? '#991B1B' : level === 'Slow' ? '#92400E' : '#065F46'),
+              bgColor: seg.bg_color || (level === 'Severe' ? '#FEF2F2' : level === 'Slow' ? '#FFFBEB' : '#ECFDF5'),
+              borderColor: seg.border_color || (level === 'Severe' ? '#FECACA' : level === 'Slow' ? '#FDE68A' : '#A7F3D0'),
+            };
+            const transitText = seg.transit_text || `${seg.transit_time_min || 4.5} min / 2.0 km`;
 
             return {
               name: seg.segment_id || `Corridor ${i + 1}`,
-              transit: `${transitTime} min / 2.1 km`,
+              transit: transitText,
               tag,
               ...colors,
             };
@@ -245,26 +225,22 @@ export default function UrbanView() {
           setCorridors(mappedCorridors);
 
           const mappedMix: CorridorMix[] = segments.map((seg: any, i: number) => {
-            const vCount = Number(seg.vehicle_count ?? seg.metrics?.vehicle_count ?? 12000);
+            const vCount = Number(seg.vehicle_count ?? seg.metrics?.vehicle_count ?? 180000);
+            const pMix = Array.isArray(seg.fleet_mix) ? seg.fleet_mix : [46, 34, 12, 8];
             return {
               name: seg.segment_id || `Corridor ${i + 1}`,
               total: `${vCount.toLocaleString()} veh`,
-              p: [48, 35, 11, 6] as [number, number, number, number],
+              p: [pMix[0], pMix[1], pMix[2], pMix[3]] as [number, number, number, number],
             };
           });
           setCorridorMix(mappedMix);
 
-          const maxDensity = Math.max(
-            ...segments.map((s: any) => Number(s.density_metric ?? s.metrics?.density_metric ?? 1)),
-            1
-          );
           const mappedEmissions: EmissionItem[] = segments.map((seg: any) => {
-            const vCount = Number(seg.vehicle_count ?? seg.metrics?.vehicle_count ?? 2000);
-            const dMetric = Number(seg.density_metric ?? seg.metrics?.density_metric ?? 1);
+            const vCount = Number(seg.vehicle_count ?? seg.metrics?.vehicle_count ?? 150000);
             const level = seg.congestion_level || seg.metrics?.congestion_level || 'Clear';
-            const idleH = Math.round(vCount * 0.08);
-            const tons = Math.max(1, Math.round(vCount * 0.02));
-            const w = Math.min(100, Math.max(25, Math.round((dMetric / maxDensity) * 100)));
+            const idleH = Number(seg.idle_hours ?? Math.round(vCount * 0.015));
+            const tons = Number(seg.co2_tons ?? Math.round(vCount * 0.0035));
+            const w = level === 'Severe' ? 88 : level === 'Slow' ? 58 : 34;
             const c = level === 'Severe' ? '#DC2626' : level === 'Slow' ? '#D97706' : '#059669';
             return {
               name: `${seg.segment_id || 'Corridor'} · ${idleH.toLocaleString()} idle-h`,
@@ -275,26 +251,23 @@ export default function UrbanView() {
           });
           setEmissions(mappedEmissions);
 
-          // Find worst choked corridor for dynamic suggestion
-          const worst =
-            segments.find((s: any) => (s.congestion_level || s.metrics?.congestion_level) === 'Severe') ||
-            segments[0];
-          if (worst && worst.segment_id) {
+          // Fallback suggestions if not returned from overview
+          if (!overview?.suggestions || overview.suggestions.length === 0) {
             setSuggestions([
               {
-                text: `Increase green-light duration by 20 s at ${worst.segment_id} to clear the peak-hour build-up.`,
-                impact: '−14% IDLING',
-                scope: 'Signal control',
+                text: 'Extend SRP Tools Junction green wave by 25 s during 08:30–10:30 and 17:30–20:00 to clear Sholinganallur build-up.',
+                impact: '−18% IDLING',
+                scope: 'Chennai Traffic Police Signal Control',
               },
               {
-                text: `Divert heavy multi-axle freight vehicles away from ${worst.segment_id} between 17:00 and 20:00.`,
+                text: 'Divert heavy freight and construction trucks to ECR / 200 Feet Radial Rd between 17:00 and 20:30.',
                 impact: '−15% CO₂',
-                scope: 'Traffic police order',
+                scope: 'Traffic Police Order',
               },
               {
-                text: `Add a dedicated rapid lane on ${worst.segment_id} — high-density flow occupies nominal capacity.`,
-                impact: '+11% THROUGHPUT',
-                scope: 'Infrastructure',
+                text: 'Designate dedicated rapid two-wheeler curb lanes at SRP Tools — 46% of traffic flow occupies only 24% capacity.',
+                impact: '+14% THROUGHPUT',
+                scope: 'Infrastructure & GCC',
               },
             ]);
           }
@@ -302,22 +275,24 @@ export default function UrbanView() {
 
         if (Array.isArray(cameras) && cameras.length > 0) {
           setNodeCount(cameras.length);
+        } else {
+          setNodeCount(6);
         }
       })
       .catch((err) => {
-        console.warn('Traffic API fallback to prototype defaults:', err);
+        console.warn('Traffic API fallback:', err);
       })
       .finally(() => {
         setIsLoading(false);
       });
-  }, [city]);
+  }, [urbanGen, city]);
 
   const A = '#0891B2';
   const cs = [A, '#0F172A', '#D97706', '#94A3B8'];
 
   // Compute donut gradient angles from dynamic fleet percentages
-  const p0 = parseInt(fleet[0]?.pct || '45', 10);
-  const p1 = parseInt(fleet[1]?.pct || '35', 10);
+  const p0 = parseInt(fleet[0]?.pct || '46', 10);
+  const p1 = parseInt(fleet[1]?.pct || '34', 10);
   const p2 = parseInt(fleet[2]?.pct || '12', 10);
   const c0 = fleet[0]?.c || '#0891B2';
   const c1 = fleet[1]?.c || '#0F172A';
@@ -325,6 +300,7 @@ export default function UrbanView() {
   const c3 = fleet[3]?.c || '#94A3B8';
   const donutGradient = `conic-gradient(${c0} 0 ${p0}%, ${c1} ${p0}% ${p0 + p1}%, ${c2} ${p0 + p1}% ${p0 + p1 + p2}%, ${c3} ${p0 + p1 + p2}% 100%)`;
 
+  // Screen 1: No City Selected Initially
   if (!urbanGen) {
     return (
       <div className="no-print" style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -345,10 +321,10 @@ export default function UrbanView() {
               <circle cx="36" cy="82" r="2.2" />
             </g>
           </svg>
-          <div style={{ maxWidth: '420px' }}>
-            <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#0F172A' }}>No city selected</div>
+          <div style={{ maxWidth: '440px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>Select a City for Urban Traffic Analytics</div>
             <div style={{ fontSize: '12.5px', color: '#64748B', lineHeight: 1.6, marginTop: '6px', textWrap: 'pretty' }}>
-              Choose a city to generate macro congestion, corridor transit, fleet-mix and emission statistics across all active camera nodes.
+              Choose an urban corridor to monitor real-time congestion heatmaps, fleet classifications, transit delays, and idle carbon emissions.
             </div>
           </div>
           <div style={{ display: 'flex', gap: '9px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -357,10 +333,10 @@ export default function UrbanView() {
               onChange={(e) => setCity(e.target.value)}
               style={{ appearance: 'none', background: '#FFFFFF', border: '1px solid #D8DDE4', color: '#0F172A', borderRadius: '5px', padding: '10px 15px', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
             >
-              <option>Chennai — OMR Corridor</option>
-              <option>New Delhi — NCR</option>
-              <option>Mumbai — MMR</option>
-              <option>Bengaluru — BBMP</option>
+              <option value="Chennai — OMR Corridor">Chennai — OMR Corridor</option>
+              <option value="New Delhi — NCR">New Delhi — NCR</option>
+              <option value="Mumbai — MMR">Mumbai — MMR</option>
+              <option value="Bengaluru — BBMP">Bengaluru — BBMP</option>
             </select>
             <button
               onClick={() => setUrbanGen(true)}
@@ -376,6 +352,43 @@ export default function UrbanView() {
     );
   }
 
+  // Screen 2: City Selected but No Active ANPR Feeds (e.g. Delhi / Mumbai)
+  if (hasNoFeeds) {
+    return (
+      <div className="no-print" style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ background: '#FFFFFF', border: '1px solid #E2E4E8', borderRadius: '6px', padding: '80px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px', textAlign: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: '20px' }}>
+            ⚠
+          </div>
+          <div style={{ maxWidth: '440px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#0F172A' }}>No Active Feeds for {city.split(' — ')[0]}</div>
+            <div style={{ fontSize: '12.5px', color: '#64748B', lineHeight: 1.6, marginTop: '6px', textWrap: 'pretty' }}>
+              No live ANPR telemetry feeds or cameras are registered for {city.split(' — ')[0]} in this prototype deployment. Live camera nodes are currently active on the <strong>Chennai — OMR Corridor</strong> (Cameras 1–6).
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+            <button
+              onClick={() => {
+                setCity('Chennai — OMR Corridor');
+                setHasNoFeeds(false);
+              }}
+              style={{ background: '#0891B2', color: '#FFFFFF', border: 'none', borderRadius: '5px', padding: '10px 18px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+            >
+              Switch to Chennai — OMR Corridor
+            </button>
+            <button
+              onClick={() => setUrbanGen(false)}
+              style={{ background: '#FFFFFF', border: '1px solid #D8DDE4', color: '#334155', borderRadius: '5px', padding: '10px 16px', fontSize: '13px', cursor: 'pointer' }}
+            >
+              Change City
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Screen 3: Live Chennai OMR Urban Dashboard
   return (
     <div className="no-print" style={{ padding: '18px 22px 32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Title & Filter Bar */}
@@ -393,7 +406,7 @@ export default function UrbanView() {
             WINDOW 24H
           </span>
           <span style={{ background: '#FFFFFF', border: '1px solid #E2E4E8', borderRadius: '4px', padding: '6px 9px', whiteSpace: 'nowrap' }}>
-            NODES {nodeCount.toLocaleString()}
+            NODES {nodeCount > 0 ? nodeCount : 6}
           </span>
           <button
             onClick={() => setUrbanGen(false)}
@@ -485,6 +498,8 @@ export default function UrbanView() {
                   </g>
                   <rect x="112" y="56" width="22" height="16" fill="#E1EBE4" />
                   <path d="M0 96 C 38 90, 74 98, 118 90 S 148 82, 160 84" stroke="#DBE6EF" strokeWidth="4" fill="none" />
+                  
+                  {/* Road Grid Base */}
                   <g stroke="#DDE2E8" strokeWidth="5.6" fill="none" strokeLinecap="round">
                     <path d="M70 14 C 104 16, 122 34, 118 52 S 96 82, 66 80 S 30 62, 34 42 S 44 14, 70 14" />
                     <path d="M0 34 H160" />
@@ -506,32 +521,58 @@ export default function UrbanView() {
                     <path d="M84 0 V100" />
                     <path d="M148 0 V100" />
                   </g>
+
+                  {/* Dynamic Colored Traffic Flows mapped to 3 Corridors */}
                   <g fill="none" strokeLinecap="round" strokeWidth="2.6">
-                    <path d="M118 52 C 114 68, 96 81, 66 80" stroke="#DC2626" />
-                    <path d="M66 80 C 44 78, 33 66, 34 52" stroke="#D97706" />
-                    <path d="M34 42 C 36 24, 48 14, 70 14 C 92 15, 108 22, 115 36" stroke="#059669" />
-                    <path d="M124 0 V 34" stroke="#D97706" />
-                    <path d="M124 70 V 100" stroke="#DC2626" />
-                    <path d="M0 70 H 66" stroke="#059669" />
-                    <path d="M84 80 V 100" stroke="#059669" />
-                    <path d="M118 34 H 160" stroke="#DC2626" />
+                    {/* OMR North (SRP Tools) - Choke Segment */}
+                    <path d="M118 52 C 114 68, 96 81, 66 80" stroke={corridors[0]?.textColor || '#DC2626'} />
+                    <path d="M118 34 H 160" stroke={corridors[0]?.textColor || '#DC2626'} />
+                    <path d="M124 70 V 100" stroke={corridors[0]?.textColor || '#DC2626'} />
+
+                    {/* OMR Mid (Perungudi) - Free Flow Segment */}
+                    <path d="M66 80 C 44 78, 33 66, 34 52" stroke={corridors[1]?.textColor || '#059669'} />
+                    <path d="M0 70 H 66" stroke={corridors[1]?.textColor || '#059669'} />
+                    <path d="M84 80 V 100" stroke={corridors[1]?.textColor || '#059669'} />
+
+                    {/* OMR South (Sholinganallur) - Slow Bottleneck Segment */}
+                    <path d="M34 42 C 36 24, 48 14, 70 14 C 92 15, 108 22, 115 36" stroke={corridors[2]?.textColor || '#D97706'} />
+                    <path d="M124 0 V 34" stroke={corridors[2]?.textColor || '#D97706'} />
                   </g>
-                  <g fill="#DC2626" opacity="0.10">
+
+                  {/* Pulsing Choke Rings at Junction Nodes */}
+                  <g fill="#DC2626" opacity="0.12">
                     <circle cx="118" cy="52" r="11" />
                     <circle cx="124" cy="82" r="9" />
-                    <circle cx="140" cy="34" r="7" />
                   </g>
+                  <g fill="#D97706" opacity="0.10">
+                    <circle cx="34" cy="42" r="8" />
+                  </g>
+
+                  {/* Camera Junction Markers */}
                   <g fill="#0F172A">
-                    <circle cx="118" cy="52" r="2.4" />
-                    <circle cx="66" cy="80" r="2.4" />
-                    <circle cx="34" cy="42" r="2.4" />
+                    <circle cx="118" cy="52" r="2.6" />
+                    <circle cx="66" cy="80" r="2.6" />
+                    <circle cx="34" cy="42" r="2.6" />
+                  </g>
+
+                  {/* Physical Camera Node Badges on Map */}
+                  <g fontFamily="'JetBrains Mono', monospace" fontSize="3.3" fontWeight="600" fill="#0F172A">
+                    <rect x="92" y="45" width="52" height="5.5" rx="1" fill="rgba(255,255,255,0.92)" stroke="#E2E4E8" strokeWidth="0.3" />
+                    <text x="94" y="49" fill="#0F172A">CAM 1-3 · OMR CORRIDOR</text>
+
+                    <rect x="42" y="86" width="54" height="5.5" rx="1" fill="rgba(255,255,255,0.92)" stroke="#E2E4E8" strokeWidth="0.3" />
+                    <text x="44" y="90" fill="#0F172A">CAM 4-5 · NH-45 CORRIDOR</text>
+
+                    <rect x="6" y="34" width="56" height="5.5" rx="1" fill="rgba(255,255,255,0.92)" stroke="#E2E4E8" strokeWidth="0.3" />
+                    <text x="8" y="38" fill="#0F172A">CAM 6 · VELACHERY BYPASS</text>
                   </g>
                 </svg>
 
+                {/* Top-Left Live Corridor Status Box */}
                 <div style={{ position: 'absolute', left: '14px', top: '14px', background: 'rgba(255,255,255,.95)', border: '1px solid #E2E4E8', borderRadius: '5px', padding: '9px 11px', fontFamily: "'JetBrains Mono', monospace", fontSize: '9.5px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {corridors.slice(0, 3).map((c, i) => (
                     <span key={i} style={{ display: 'flex', gap: '7px', alignItems: 'center' }}>
-                      <span style={{ width: '6px', height: '6px', background: c.textColor, flex: 'none' }} />
+                      <span style={{ width: '6px', height: '6px', background: c.textColor, flex: 'none', borderRadius: '1px' }} />
                       <span style={{ color: '#334155' }}>{c.name.toUpperCase()} · {c.transit.split(' / ')[0]}</span>
                     </span>
                   ))}
@@ -539,6 +580,7 @@ export default function UrbanView() {
               </div>
             </div>
 
+            {/* Bottom 3 Corridor Status Tabs */}
             <div style={{ borderTop: '1px solid #EEF1F4', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(168px, 1fr))' }}>
               {corridors.map((c, idx) => (
                 <div key={idx} style={{ padding: '12px 15px', borderRight: '1px solid #EEF1F4', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>

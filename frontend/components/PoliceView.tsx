@@ -207,6 +207,7 @@ export default function PoliceView({
   const [activeCameraCount, setActiveCameraCount] = useState<number>(0);
   const [activeDateRange, setActiveDateRange] = useState<string>('');
   const [selectedPhotoSighting, setSelectedPhotoSighting] = useState<SightingItem | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('Camera_1');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync plate input with prop
@@ -625,10 +626,32 @@ export default function PoliceView({
             <span style={{ fontSize: '9.5px', letterSpacing: '.11em', textTransform: 'uppercase', color: '#94A3B8', fontWeight: 600 }}>
               Camera Node
             </span>
-            <input
-              defaultValue={cameras.length > 0 ? `${cameras[0].name} · ${cameras[0].id}` : 'Camera_1 — OMR Junction North'}
-              style={{ background: 'transparent', border: 'none', color: '#0F172A', padding: 0, fontSize: '13.5px', fontWeight: 500, outline: 'none', width: '100%' }}
-            />
+            <select
+              value={selectedCameraId}
+              onChange={(e) => setSelectedCameraId(e.target.value)}
+              style={{
+                appearance: 'none',
+                background: 'transparent',
+                border: 'none',
+                color: '#0F172A',
+                padding: 0,
+                fontSize: '13.5px',
+                fontWeight: 500,
+                outline: 'none',
+                cursor: 'pointer',
+                width: '100%',
+              }}
+            >
+              {cameras.length > 0 ? (
+                cameras.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.id} — {c.name}
+                  </option>
+                ))
+              ) : (
+                <option value="Camera_1">Camera_1 — OMR Junction North</option>
+              )}
+            </select>
           </label>
 
           {/* Timestamp */}
@@ -843,15 +866,22 @@ export default function PoliceView({
           )}
 
           {/* LIVE FEED VIEW */}
-          {viewMode === 'live' && (
+          {viewMode === 'live' && (() => {
+            const currentSelectedCam = cameras.find((c) => c.id === selectedCameraId) || cameras[0] || {
+              id: 'Camera_1',
+              name: 'OMR Junction North',
+              latitude: 12.9854,
+              longitude: 80.2406,
+            };
+            return (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '13px 16px', borderBottom: '1px solid #EEF1F4' }}>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                    Live Feed · <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0891B2' }}>Camera_1</span>
+                    Live Feed · <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0891B2' }}>{currentSelectedCam.id}</span>
                   </div>
                   <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
-                    OMR Junction North, Chennai · 1920×1080 · 25 fps
+                    {currentSelectedCam.name}, Chennai · 1920×1080 · 25 fps
                   </div>
                 </div>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '.06em', color: '#991B1B', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '4px', padding: '5px 9px' }}>
@@ -882,7 +912,7 @@ export default function PoliceView({
                   </div>
                   {/* Live HUD metadata */}
                   <div style={{ position: 'absolute', left: '12px', top: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#334155', background: 'rgba(255,255,255,.92)', border: '1px solid #E2E4E8', borderRadius: '4px', padding: '5px 8px' }}>
-                    Camera_1 · 12.9854, 80.2406
+                    {currentSelectedCam.id} · {Number(currentSelectedCam.latitude).toFixed(4)}, {Number(currentSelectedCam.longitude).toFixed(4)}
                   </div>
                   <div style={{ position: 'absolute', right: '12px', bottom: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#64748B', background: 'rgba(255,255,255,.92)', border: '1px solid #E2E4E8', borderRadius: '4px', padding: '5px 8px' }}>
                     38 detections / min
@@ -890,7 +920,8 @@ export default function PoliceView({
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* SIGHTING PHOTOS GRID VIEW */}
           {viewMode === 'grid' && (
